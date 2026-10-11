@@ -85,7 +85,7 @@ test("宋体和楷体默认关闭，多字体预览、保存与无效列表提�
     await page.locator("#song-font").fill("Missing Font, SimSun"); await page.locator("#kai-font").fill("Missing Font，KaiTi");
     await page.locator("#font").fill("Missing Font, Courier New");
     await page.waitForFunction(() => ["font-status", "song-font-status", "kai-font-status"].every(id => document.getElementById(id).textContent.includes("已找到")));
-    assert.deepEqual(await page.locator(".preview-kai").evaluate(node => SPF.familyList(node.style.fontFamily).map(SPF.familyName)), ["shared punctuation font", "shared punctuation font 2", "missing font", "kaiti", "serif"]);
+    assert.deepEqual(await page.locator(".preview-kai").evaluate(node => SPF.familyList(node.style.fontFamily).map(SPF.familyName)), ["missing font", "kaiti", "serif"]);
     await page.getByRole("button", { name: "保存设置" }).click();
     const stored = await page.evaluate(() => saves[0].value.settings);
     assert.equal(stored.replaceSong, true); assert.equal(stored.replaceKai, true);

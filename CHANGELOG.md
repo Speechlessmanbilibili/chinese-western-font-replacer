@@ -2,6 +2,13 @@
 
 根据 Git 提交、版本标签及 GitHub Release 记录整理。版本标题链接到对应 Release，日期采用首次发布时的北京时间；同版本安装包的后续更新另行标注日期。
 
+## [v1.2.1](https://github.com/Speechlessmanbilibili/chinese-western-font-replacer/releases/tag/v1.2.1)（2026-10-11）
+
+- 将 `Times New Roman` 纳入衬线体中西文字体组合，原位应用中文、西文及共用字符设置，保留原字体后备和优先级。
+- 将独立标点注入限定到原字体名称含 `sans`、`Hei`/`Heiti` 或“黑体”/“黑體”等标签的列表，忽略英文大小写；按原名称判断，保留其他字体列表的标点字形。
+- 按字体变量的实际声明和嵌套回退处理标点，支持多层引用、纯 CSS 状态切换及动态更新，关闭后恢复网站最新声明。
+- 更新设置页的标点适用范围和衬线组合说明。
+
 ## [v1.2.0](https://github.com/Speechlessmanbilibili/chinese-western-font-replacer/releases/tag/v1.2.0)（2026-10-10）
 
 - 将扩展改名为“中西文字体替换”，仓库改名为 `chinese-western-font-replacer`，同步设置页、工具栏及安装包名称，更新相关链接，沿用原扩展身份和配置。

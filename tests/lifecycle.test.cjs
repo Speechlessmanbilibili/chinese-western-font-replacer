@@ -15,7 +15,7 @@ before(async () => {
   crossServer = http.createServer((req, res) => {
     const value = crossRoutes.get(req.url);
     res.writeHead(200, { "content-type": value?.type || "text/css" });
-    res.end(value?.bytes || value || "#t{font-family:Verdana;color:red}");
+    res.end(value?.bytes || value || "#t{font-family:Verdana,sans-serif;color:red}");
   });
   await new Promise(resolve => crossServer.listen(0, "127.0.0.1", resolve));
   crossOrigin = `http://127.0.0.1:${crossServer.address().port}`;
@@ -69,27 +69,27 @@ test("Shadow DOM 宿主挂回后恢复观察，闭合影子根的动态资源与
   await page.evaluate(() => {
     window.host = document.getElementById("host");
     window.shadow = host.attachShadow({ mode: "closed" });
-    shadow.innerHTML = '<style id=s>p{font-family:Arial}</style><p id=t>ABC“”</p><p id=i style="font-family:Arial">ABC“”</p>';
+    shadow.innerHTML = '<style id=s>p{font-family:Arial,sans-serif}</style><p id=t>ABC“”</p><p id=i style="font-family:Arial,sans-serif">ABC“”</p>';
   });
   await page.waitForFunction(() => shadow.getElementById("i").style.fontFamily.includes("Shared Punctuation Font"));
   await page.evaluate(() => host.remove());
-  await page.waitForFunction(() => shadow.getElementById("i").style.fontFamily === "Arial");
+  await page.waitForFunction(() => shadow.getElementById("i").style.fontFamily === "Arial, sans-serif");
   await page.evaluate(() => document.body.append(host));
   await page.waitForFunction(() => shadow.getElementById("i").style.fontFamily.includes("Shared Punctuation Font"));
   await page.evaluate(() => {
-    shadow.getElementById("s").textContent = "p{font-family:Verdana}";
-    shadow.getElementById("i").setAttribute("style", "font-family:Georgia!important");
+    shadow.getElementById("s").textContent = "p{font-family:Verdana,sans-serif}";
+    shadow.getElementById("i").setAttribute("style", "font-family:Georgia,sans-serif!important");
   });
   await page.waitForFunction(() => getComputedStyle(shadow.getElementById("t")).fontFamily.includes("Shared Punctuation Font") && shadow.getElementById("i").style.fontFamily.includes("Shared Punctuation Font"));
   assert.ok((await page.evaluate(() => getComputedStyle(shadow.getElementById("t")).fontFamily)).includes("Verdana"));
   await settings({ ...defaultSettings, enabled: false });
-  await page.waitForFunction(() => shadow.getElementById("i").style.fontFamily === "Georgia");
+  await page.waitForFunction(() => shadow.getElementById("i").style.fontFamily === "Georgia, sans-serif");
   assert.equal(await page.evaluate(() => shadow.getElementById("i").style.getPropertyPriority("font-family")), "important");
   await settings(defaultSettings);
 });
 
 test("网站只改变已改写声明的优先级时，关闭后保留新的 important", async () => {
-  const page = await pageFor("priority", '<style>:root{--正文:"Microsoft YaHei"}</style><p id=t style="font-family:Arial">ABC“”</p><p style="font-family:var(--正文)">中文</p>');
+  const page = await pageFor("priority", '<style>:root{--正文:"Microsoft YaHei"}</style><p id=t style="font-family:Arial,sans-serif">ABC“”</p><p style="font-family:var(--正文)">中文</p>');
   await page.waitForFunction(() => document.styleSheets[0].cssRules[0].style.getPropertyValue("--正文").includes("PingFang UI SC"));
   await page.evaluate(() => {
     const family = document.getElementById("t").style;
@@ -98,7 +98,7 @@ test("网站只改变已改写声明的优先级时，关闭后保留新的 impo
     source.setProperty("--正文", source.getPropertyValue("--正文"), "important");
   });
   await settings({ ...defaultSettings, enabled: false });
-  await page.waitForFunction(() => document.getElementById("t").style.fontFamily === "Arial");
+  await page.waitForFunction(() => document.getElementById("t").style.fontFamily === "Arial, sans-serif");
   assert.equal(await page.evaluate(() => document.getElementById("t").style.getPropertyPriority("font-family")), "important");
   assert.equal(await page.evaluate(() => document.styleSheets[0].cssRules[0].style.getPropertyPriority("--正文")), "important");
   await settings(defaultSettings);
@@ -108,8 +108,8 @@ test("字体变量的多层回退原位替换正文黑体，宋体回退继续�
   const page = await pageFor("fallback", '<style>#a{font-family:var(--missing,"Microsoft YaHei"),Arial}#b{font-family:var(--missing,var(--next,"HarmonyOS Sans SC")),Arial}#c{font-family:var(--missing,SimSun),sans-serif}</style><p id=a>中文</p><p id=b>中文</p><p id=c>中文</p>');
   await page.waitForFunction(() => document.styleSheets[0].cssRules[0].style.fontFamily.includes("Shared Punctuation Font"));
   const names = await page.evaluate(() => [...document.styleSheets[0].cssRules].map(rule => rule.style.fontFamily));
-  assert.equal(names[0], '"Shared Punctuation Font", var(--missing,"SF Pro Text", "PingFang UI SC", "PingFang SC"),Arial');
-  assert.equal(names[1], '"Shared Punctuation Font", var(--missing,var(--next,"SF Pro Text", "PingFang UI SC", "PingFang SC")),Arial');
+  assert.equal(names[0], 'var(--missing,"Shared Punctuation Font", "SF Pro Text", "PingFang UI SC", "PingFang SC"),Arial');
+  assert.equal(names[1], 'var(--missing,var(--next,"Shared Punctuation Font", "SF Pro Text", "PingFang UI SC", "PingFang SC")),Arial');
   assert.equal(names[2], '"Shared Punctuation Font", var(--missing,SimSun),sans-serif');
   assert.equal(await page.locator("#a").evaluate(node => getComputedStyle(node).fontFamily), '"Shared Punctuation Font", "SF Pro Text", "PingFang UI SC", "PingFang SC", Arial');
 });
@@ -117,7 +117,7 @@ test("字体变量的多层回退原位替换正文黑体，宋体回退继续�
 test("空存储值恢复默认配置，不中断内容脚本", async () => {
   await settings(null);
   const page = await context.newPage();
-  routes.set("/empty", '<style>p{font-family:Arial}</style><p id=t>ABC“”</p>');
+  routes.set("/empty", '<style>p{font-family:Arial,sans-serif}</style><p id=t>ABC“”</p>');
   page.on("pageerror", error => errors.push("empty: " + error.message));
   await page.goto(origin + "/empty");
   await page.waitForFunction(() => document.styleSheets[0].cssRules[0].style.fontFamily.includes("Shared Punctuation Font"));
@@ -147,11 +147,11 @@ test("分组规则中插入字体声明后立即处理，移除变量规则同�
   await page.waitForFunction(() => !document.styleSheets[0].cssRules[0].cssRules[1].style.fontFamily.includes("PingFang UI SC"));
   await page.evaluate(() => document.getElementById("s").sheet.cssRules[0].deleteRule(0));
   await page.waitForFunction(() => document.styleSheets[0].cssRules[0].cssRules[0].style.fontFamily.includes("PingFang UI SC"));
-  await page.evaluate(() => document.getElementById("s").sheet.cssRules[0].insertRule("#t{font-family:Verdana}", 1));
+  await page.evaluate(() => document.getElementById("s").sheet.cssRules[0].insertRule("#t{font-family:Verdana,sans-serif}", 1));
   await page.waitForFunction(() => getComputedStyle(document.getElementById("t")).fontFamily.includes("Shared Punctuation Font") && getComputedStyle(document.getElementById("t")).fontFamily.includes("Verdana"));
 });
 test("同源导入表移除后还原子表，变量依赖不残留", async () => {
-  routes.set("/imported.css", ':root{--正文:SimSun}#imported{font-family:Arial}');
+  routes.set("/imported.css", ':root{--正文:SimSun}#imported{font-family:Arial,sans-serif}');
   const page = await pageFor("import-lifecycle", '<style id=s>@import url("/imported.css");</style><style>#t{font-family:var(--正文,Arial),sans-serif}</style><p id=t>ABC中文“”</p><p id=imported>ABC“”</p>');
   await page.waitForFunction(() => document.getElementById("s").sheet.cssRules[0].styleSheet.cssRules[1].style.fontFamily.includes("Shared Punctuation Font"));
   await page.waitForFunction(() => !document.styleSheets[1].cssRules[0].style.fontFamily.includes("PingFang UI SC"));
@@ -160,11 +160,11 @@ test("同源导入表移除后还原子表，变量依赖不残留", async () =>
     document.getElementById("s").sheet.deleteRule(0);
   });
   await page.waitForFunction(() => getComputedStyle(document.getElementById("t")).fontFamily.includes("PingFang UI SC"));
-  assert.equal(await page.evaluate(() => childSheet.cssRules[1].style.fontFamily), "Arial");
+  assert.equal(await page.evaluate(() => childSheet.cssRules[1].style.fontFamily), "Arial, sans-serif");
 });
 test("跨域导入及资源 URL 的 CSS 转义保持来源地址和导入条件", async () => {
   crossRoutes.set("/escaped.css", String.raw`@\69mport u\72l("./child.css") la\79 er(imported) s\75 pports(display:grid) screen;#image{background-image:u\72l("./image.svg")}`);
-  crossRoutes.set("/child.css", "#t{font-family:Verdana;color:blue}");
+  crossRoutes.set("/child.css", "#t{font-family:Verdana,sans-serif;color:blue}");
   const page = await pageFor("escaped-url", `<link rel=stylesheet href="${crossOrigin}/escaped.css"><p id=t>ABC“”</p><div id=image></div>`);
   await page.waitForFunction(() => document.querySelector('style[data-spf="stylesheet"]')?.sheet?.cssRules.length);
   await page.waitForFunction(() => getComputedStyle(document.getElementById("t")).fontFamily.includes("Shared Punctuation Font"));
@@ -172,7 +172,7 @@ test("跨域导入及资源 URL 的 CSS 转义保持来源地址和导入条件"
   assert.ok((await page.locator("#image").evaluate(node => getComputedStyle(node).backgroundImage)).includes(crossOrigin + "/image.svg"));
 });
 test("转义的命名空间声明继续保留原跨域样式表", async () => {
-  crossRoutes.set("/namespace.css", String.raw`@n\61mespace svg "http://www.w3.org/2000/svg";svg|text{font-family:Arial;color:red}`);
+  crossRoutes.set("/namespace.css", String.raw`@n\61mespace svg "http://www.w3.org/2000/svg";svg|text{font-family:Arial,sans-serif;color:red}`);
   const page = await pageFor("namespace", `<link id=l rel=stylesheet href="${crossOrigin}/namespace.css"><svg xmlns="http://www.w3.org/2000/svg"><text>ABC“”</text></svg>`);
   await page.waitForTimeout(100);
   assert.equal(await page.locator('style[data-spf="stylesheet"]').count(), 0);
@@ -210,18 +210,18 @@ test("替换只有字体变量的构造样式表时，释放旧变量声明及�
   }
 });
 test("动态关键帧的追加、替换和删除处理字体声明", async () => {
-  const page = await pageFor("keyframes-cssom", '<style id=s>@keyframes fonts{}#t{font-family:Arial;animation:fonts 1s linear paused;animation-delay:-.5s}</style><p id=t>ABC“”</p>');
+  const page = await pageFor("keyframes-cssom", '<style id=s>@keyframes fonts{}#t{font-family:Arial,sans-serif;animation:fonts 1s linear paused;animation-delay:-.5s}</style><p id=t>ABC“”</p>');
   await page.evaluate(() => {
     window.keys = document.getElementById("s").sheet.cssRules[0];
-    keys.appendRule("0%{font-family:Verdana}"); keys.appendRule("100%{font-family:Verdana}");
+    keys.appendRule("0%{font-family:Verdana,sans-serif}"); keys.appendRule("100%{font-family:Verdana,sans-serif}");
   });
   await page.waitForFunction(() => [...keys.cssRules].every(rule => rule.style.fontFamily.includes("Shared Punctuation Font")));
   assert.ok((await page.locator("#t").evaluate(node => getComputedStyle(node).fontFamily)).includes("Shared Punctuation Font"));
   await page.evaluate(() => { window.oldKey = keys.findRule("100%"); keys.deleteRule("100%"); });
-  assert.equal(await page.evaluate(() => oldKey.style.fontFamily), "Verdana");
+  assert.equal(await page.evaluate(() => oldKey.style.fontFamily), "Verdana, sans-serif");
 });
 test("CSSOM 属性名保留浏览器字符串转换语义", async () => {
-  const page = await pageFor("cssom-coercion", '<p id=t style="font-family:Arial">ABC“”</p>');
+  const page = await pageFor("cssom-coercion", '<p id=t style="font-family:Arial,sans-serif">ABC“”</p>');
   const state = await page.evaluate(() => {
     const style = document.getElementById("t").style;
     const errors = [];
@@ -229,7 +229,7 @@ test("CSSOM 属性名保留浏览器字符串转换语义", async () => {
       try { style[method](name, "Arial"); } catch (error) { errors.push(method + ":" + error.name); }
     }
     let conversions = 0;
-    style.setProperty({ toString() { conversions++; return "font-family"; } }, "Verdana");
+    style.setProperty({ toString() { conversions++; return "font-family"; } }, "Verdana,sans-serif");
     return { errors, conversions, family: style.fontFamily };
   });
   assert.deepEqual(state.errors, []);
@@ -242,7 +242,7 @@ test("无 referrer 的特殊来源框架按创建页端口执行站点规则", a
   await settings({ ...defaultSettings, siteRules: [{ domain: "127.0.0.1:" + port, action: "off" }] });
   await page.waitForFunction(() => [...document.fonts].length === 0);
   await page.evaluate(() => {
-    const content = '<style>#t{font-family:Arial}</style><p id=t>ABC“”</p>';
+    const content = '<style>#t{font-family:Arial,sans-serif}</style><p id=t>ABC“”</p>';
     for (const mode of ["data", "blob", "srcdoc", "blank"]) {
       const frame = document.createElement("iframe"); frame.id = mode; frame.referrerPolicy = "no-referrer";
       if (mode === "srcdoc") frame.srcdoc = content;
@@ -268,14 +268,14 @@ test("无 referrer 的特殊来源框架按创建页端口执行站点规则", a
   }
 });
 test("document.open 重建页面后保留字体处理及配置开关", async () => {
-  const page = await pageFor("document-open", '<style>p{font-family:Arial}</style><p id=t>ABC“”</p>');
-  await page.evaluate(() => { document.open(); document.write('<style>p{font-family:Verdana}</style><p id=t>ABC“”</p>'); document.close(); });
+  const page = await pageFor("document-open", '<style>p{font-family:Arial,sans-serif}</style><p id=t>ABC“”</p>');
+  await page.evaluate(() => { document.open(); document.write('<style>p{font-family:Verdana,sans-serif}</style><p id=t>ABC“”</p>'); document.close(); });
   await page.waitForFunction(() => getComputedStyle(document.getElementById("t")).fontFamily.includes("Shared Punctuation Font"));
   assert.equal(await page.evaluate(() => [...document.fonts].length), 1);
-  assert.ok((await page.evaluate(() => getComputedStyle(document.documentElement).fontFamily)).includes("Shared Punctuation Font"));
+  assert.ok((await page.evaluate(() => getComputedStyle(document.documentElement).fontFamily)).includes("PingFang UI SC"));
   await settings({ ...defaultSettings, enabled: false });
   await page.waitForFunction(() => [...document.fonts].length === 0);
-  assert.equal(await page.locator("#t").evaluate(node => getComputedStyle(node).fontFamily), "Verdana");
+  assert.equal(await page.locator("#t").evaluate(node => getComputedStyle(node).fontFamily), "Verdana, sans-serif");
   await settings(defaultSettings);
   await page.waitForFunction(() => getComputedStyle(document.getElementById("t")).fontFamily.includes("Shared Punctuation Font"));
 });
@@ -292,6 +292,6 @@ test("GBK 跨域字体变量及中文字体名正确解码，子导入继承父�
   const imported = await pageFor("gbk-imported", `<link rel=stylesheet href="${crossOrigin}/gbk-parent.css"><p id=t>中文“”</p>`);
   await imported.waitForFunction(() => getComputedStyle(document.getElementById("t")).fontFamily.includes("PingFang UI SC"));
   assert.equal(await imported.locator("#t").evaluate(node => getComputedStyle(node).color), "rgb(0, 0, 255)");
-  assert.ok((await imported.locator("#t").evaluate(node => getComputedStyle(node).fontFamily)).includes("Shared Punctuation Font"));
+  assert.equal((await imported.locator("#t").evaluate(node => getComputedStyle(node).fontFamily)).includes("Shared Punctuation Font"), false);
 });
 test("生命周期回归没有页面脚本错误", () => assert.deepEqual(errors, []));

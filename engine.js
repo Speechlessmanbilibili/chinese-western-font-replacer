@@ -88,7 +88,7 @@
     if (variableSources.has(style)) variableSources.get(style).signature = style.cssText;
   }
   function trackVariables(style, owner) {
-    if (!SPF.hasBodyFonts(config)) return;
+    if (!SPF.hasFonts(config)) return;
     for (const [name, saved] of variableSnapshots.get(style) || []) {
       if (style.getPropertyValue(name) === saved.modified) saved.priority = style.getPropertyPriority(name);
     }
@@ -110,7 +110,7 @@
   }
   function updateVariables() {
     variableTimer = 0;
-    if (!active || !SPF.hasBodyFonts(config)) return;
+    if (!active || !SPF.hasFonts(config)) return;
     const references = new Set();
     const graph = new Map();
     const rootInline = document.documentElement?.style;
@@ -174,7 +174,7 @@
         const value = style.getPropertyValue(name);
         const saved = variableSnapshots.get(style)?.get(name);
         if (saved?.modified === value) continue;
-        const modified = SPF.chineseFamilies(value, config, false);
+        const modified = SPF.prepend(value, config, false, false, false);
         if (modified === value) { variableSnapshots.get(style)?.delete(name); continue; }
         const priority = style.getPropertyPriority(name);
         if (!variableSnapshots.has(style)) variableSnapshots.set(style, new Map());
@@ -591,13 +591,13 @@
   // CSSOM 的写入只在相关声明或样式表变化时处理；浏览器状态选择器继续原生生效。
   CSSStyleDeclaration.prototype.setProperty = function (name, value, priority) {
     const result = setProperty.apply(this, arguments);
-    if (!writing && (typeof name !== "string" || /^(?:font|font-family)$/i.test(name) || (active && SPF.hasBodyFonts(config) && name.startsWith("--")))) patchStyle(this);
+    if (!writing && (typeof name !== "string" || /^(?:font|font-family)$/i.test(name) || (active && SPF.hasFonts(config) && name.startsWith("--")))) patchStyle(this);
     return result;
   };
   CSSStyleDeclaration.prototype.removeProperty = function (name) {
     const result = removeProperty.apply(this, arguments);
     if (!writing && (typeof name === "string" ? /^(?:font|font-family)$/i.test(name) : snapshots.get(this)?.modified !== this.getPropertyValue("font-family"))) snapshots.delete(this);
-    if (!writing && active && SPF.hasBodyFonts(config) && (typeof name !== "string" || /^(?:font|font-family)$/i.test(name) || name.startsWith("--"))) trackVariables(this, null);
+    if (!writing && active && SPF.hasFonts(config) && (typeof name !== "string" || /^(?:font|font-family)$/i.test(name) || name.startsWith("--"))) trackVariables(this, null);
     return result;
   };
   for (const name of ["font", "fontFamily", "cssText"]) {

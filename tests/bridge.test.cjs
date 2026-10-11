@@ -8,7 +8,7 @@ before(async () => { browser = await chromium.launch({ headless: true, executabl
 after(async () => { await browser?.close(); });
 async function fixture() {
   const page = await browser.newPage();
-  await page.setContent('<style>#t{font-family:Arial}</style><p id=t>ABC“”</p>');
+  await page.setContent('<style>#t{font-family:Arial,sans-serif}</style><p id=t>ABC“”</p>');
   await page.evaluate(() => {
     window.reads = 0; window.fontQueries = 0; window.rootCalls = []; window.listeners = [];
     window.chrome = { storage: {
@@ -51,7 +51,7 @@ test("默认字体查询期间关闭及根样式注入期间关闭，旧任务�
     await page.evaluate(() => { change(false); finishFont({ font: "Arial" }); });
     await page.waitForFunction(() => [...document.fonts].length === 0);
     assert.equal(await page.evaluate(() => rootCalls.length), 0);
-    assert.equal(await page.evaluate(() => document.styleSheets[0].cssRules[0].style.fontFamily), "Arial");
+    assert.equal(await page.evaluate(() => document.styleSheets[0].cssRules[0].style.fontFamily), "Arial, sans-serif");
     await page.evaluate(() => { window.holdRoot = true; change(true); });
     await page.waitForFunction(() => !!window.finishRoot);
     await page.evaluate(() => { change(false); holdRoot = false; finishRoot({ ok: true }); });
@@ -59,6 +59,6 @@ test("默认字体查询期间关闭及根样式注入期间关闭，旧任务�
     const calls = await page.evaluate(() => rootCalls);
     assert.equal(calls[1].css, ""); assert.equal(calls[1].previous, calls[0].css);
     assert.equal(await page.evaluate(() => [...document.fonts].length), 0);
-    assert.equal(await page.evaluate(() => document.styleSheets[0].cssRules[0].style.fontFamily), "Arial");
+    assert.equal(await page.evaluate(() => document.styleSheets[0].cssRules[0].style.fontFamily), "Arial, sans-serif");
   } finally { await page.close(); }
 });
