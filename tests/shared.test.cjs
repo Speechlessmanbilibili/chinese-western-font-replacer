@@ -46,8 +46,8 @@ test("站点规则匹配子域名、显式端口、默认端口与相同规则�
 });
 test("常见正文字体原位替换，宋体与 SimHei 保留，无命中在列表末尾追加", () => {
   assert.equal(S.prepend('Arial, "Microsoft YaHei", sans-serif', { cjkMode: "replace" }), S.prefix + 'Arial,"SF Pro Text", "PingFang UI SC", "PingFang SC","SF Pro Text", "PingFang UI SC", "PingFang SC"');
-  assert.equal(S.prepend('Arial, SimSun, serif', { cjkMode: "replace" }), 'Arial, SimSun, serif');
-  assert.equal(S.prepend('"A,B", var(--fonts, serif), sans-serif', { cjkMode: "replace" }), S.prefix + '"A,B", var(--fonts, serif),"SF Pro Text", "PingFang UI SC", "PingFang SC"');
+  assert.equal(S.prepend('Arial, SimSun, serif', { cjkMode: "replace" }), S.prefix + 'Arial, SimSun, serif');
+  assert.equal(S.prepend('"A,B", var(--fonts, serif), sans-serif', { cjkMode: "replace" }), '"A,B", var(--fonts, serif),"SF Pro Text", "PingFang UI SC", "PingFang SC"');
   assert.equal(S.prepend('Arial', { groups: [], cjkMode: "replace" }), 'Arial, "SF Pro Text", "PingFang UI SC", "PingFang SC"');
   assert.equal(S.chineseFamilies('"Noto Serif SC", "Source Han Serif SC", "宋体", "仿宋", serif', {}), '"Noto Serif SC", "Source Han Serif SC", "宋体", "仿宋", serif');
   assert.equal(S.chineseFamilies('"Noto Sans JP", "Apple SD Gothic Neo", serif', {}), '"Noto Sans JP", "Apple SD Gothic Neo", serif, "SF Pro Text", "PingFang UI SC", "PingFang SC"');
@@ -65,18 +65,19 @@ test("明确的宋体、楷体、仿宋及变量回退阻止追加，正文黑�
   for (const family of ["SimSun", "NSimSun", "STSong", '"Songti SC"', '"宋体"', '"方正书宋"', "KaiTi", "KaiTi_GB2312", "STKaiti", '"Kaiti SC"', '"楷体"', "FangSong", "STFangsong", '"仿宋"', '"Noto Serif CJK SC"', '"Source Han Serif CN"', String.raw`"\5b8b \4f53 "`, "generic(kai)", "generic(fangsong)", "var(--body, var(--backup, SimSun))"]) {
     const value = "Arial, " + family + ", serif";
     assert.equal(S.chineseFamilies(value, {}), value, family);
-    assert.equal(S.prepend(value, {}), value, family);
+    assert.equal(S.prepend(value, {}), S.prefix + value, family);
   }
   assert.equal(S.chineseFamilies('Arial, "Microsoft YaHei", SimSun', {}), 'Arial,"SF Pro Text", "PingFang UI SC", "PingFang SC", SimSun');
   for (const value of ['Arial, serif', '"Times New Roman", serif', '"Noto Serif", serif', '"My SimSun Theme", serif']) {
     assert.equal(S.chineseFamilies(value, {}), value + ', "SF Pro Text", "PingFang UI SC", "PingFang SC"');
   }
 });
-test("默认名单限定简中 CSS 字体栈，繁体、港版及额外家族保留", () => {
+test("默认正文名单列出常见简中黑体名称，自选名单按输入名称匹配", () => {
   const original = '"PingFang TC", "PingFang HK", "Noto Sans TC", "Noto Sans CJK HK", "Microsoft JhengHei", "Source Han Sans TW", MiSans, OPPOSans, Arial';
   assert.equal(S.chineseFamilies(original, {}), original + ', "SF Pro Text", "PingFang UI SC", "PingFang SC"');
   assert.equal(S.chineseFamilies('"WenQuanYi Micro Hei", sans-serif', {}), '"SF Pro Text", "PingFang UI SC", "PingFang SC","SF Pro Text", "PingFang UI SC", "PingFang SC"');
   assert.equal(S.CHINESE_FONTS.length, 14);
+  assert.equal(S.chineseFamilies('"PingFang TC", Arial', { cjkTargets: ["PingFang TC"] }), '"SF Pro Text", "PingFang UI SC", "PingFang SC", Arial');
 });
 test("SF Pro Text 紧邻目标中文字体，已有相邻项不重复，自选目标字体同样处理", () => {
   const original = 'Arial,"SF Pro Text", "PingFang UI SC", sans-serif';
@@ -111,7 +112,7 @@ test("系统无衬线与 Apple 文本样式原位替换，中文衬线栈保留�
   for (const name of S.SYSTEM_FONTS) {
     assert.equal(S.chineseFamilies('Arial, ' + name, {}), 'Arial,"SF Pro Text", "PingFang UI SC", "PingFang SC"', name);
     assert.equal(S.chineseFamilies('SimSun, ' + name, {}), 'SimSun, ' + name, name);
-    assert.equal(S.prepend('var(--song), ' + name, {}, false), (/sans/i.test(name) ? S.prefix : '') + 'var(--song), ' + name, name);
+    assert.equal(S.prepend('var(--song), ' + name, {}, false), 'var(--song), ' + name, name);
     assert.equal(S.chineseFamilies(name, {}, false), '"SF Pro Text", "PingFang UI SC", "PingFang SC"', name);
   }
   assert.equal(S.SYSTEM_FONTS.length, 24);
@@ -178,7 +179,7 @@ test("serif 原位组合保留前置字体和显式字体名称，嵌套回退�
   const group = '"Mixed Serif Chinese", "Mixed Serif Chinese 2", "Mixed Serif Western", "Mixed Serif Western 2", serif';
   assert.equal(S.normalize({}).replaceSerif, false);
   assert.equal(S.normalize({}).serifShared, "chinese");
-  assert.equal(S.prepend("Arial, serif", settings), "Arial," + group);
+  assert.equal(S.prepend("Arial, serif", settings), S.prefix + "Arial," + group);
   assert.equal(S.prepend("serif", settings), group);
   assert.equal(S.prepend("SimSun", settings), group.replace(/serif$/, "SimSun"));
   assert.equal(S.prepend('"宋体"', settings), group.replace(/serif$/, '"宋体"'));
@@ -187,7 +188,7 @@ test("serif 原位组合保留前置字体和显式字体名称，嵌套回退�
     assert.equal(S.prepend(value, settings), group.replace(/serif$/, value), value);
   }
   assert.equal(S.normalize({ replaceSong: true, replaceSerif: true }).replaceSong, false);
-  assert.equal(S.prepend(S.prepend("Arial, serif", settings), settings), "Arial," + group);
+  assert.equal(S.prepend(S.prepend("Arial, serif", settings), settings), S.prefix + "Arial," + group);
   assert.equal(S.prepend(String.raw`s\65 rif`, settings).includes('"Mixed Serif Chinese"'), true);
   for (const value of ['"serif"', "ui-serif", "sans-serif", "monospace", '"Songti SC"', '"新宋体"', '"思源宋体"']) {
     assert.equal(S.hasSerif(value), false, value);
@@ -208,12 +209,14 @@ test("标点按原字体名称标签筛选，变量名称与替换后的字体�
     assert.equal(S.hasSans(value), true, value);
     assert.equal(S.prepend(value, options), S.prefix + value, value);
   }
-  for (const value of ['Arial', '"Times New Roman"', 'serif', 'SimSun', 'KaiTi', 'var(--sans-font)', 'var(--hei, serif)', 'Arial /* sans-serif */']) {
+  for (const value of ['"Space Grotesk", Arial, sans-serif', '"Times New Roman", sans-serif', 'Georgia, "Noto Sans SC"', 'serif', 'SimSun', 'KaiTi', 'var(--sans-font)', 'var(--hei, serif)', 'Custom /* sans-serif */']) {
     assert.equal(S.hasSans(value), false, value);
     assert.equal(S.prepend(value, options), value, value);
   }
-  assert.equal(S.prepend('Arial', { cjkFont: 'Fake Sans' }), 'Arial, "SF Pro Text", "Fake Sans"');
-  assert.equal(S.prepend('var(--a, var(--b, Arial, sans-serif))', options), 'var(--a, var(--b,"Shared Punctuation Font",  Arial, sans-serif))');
+  assert.equal(S.prepend('Custom', { cjkFont: 'Fake Sans' }), 'Custom, "SF Pro Text", "Fake Sans"');
+  assert.equal(S.prepend('var(--a, var(--b, Arial, sans-serif))', options), 'var(--a,var(--b,"Shared Punctuation Font",  Arial, sans-serif))');
+  assert.equal(S.prepend('"Noto Sans SC", serif', { ...options, replaceSerif: true }).startsWith(S.prefix), true);
+  assert.equal(S.hasSans('Arial', { punctuationTargets: [] }), false);
   assert.ok(!S.prepend('"Times New Roman", sans-serif', { ...options, replaceSerif: true }).includes('Shared Punctuation Font'));
 });
 

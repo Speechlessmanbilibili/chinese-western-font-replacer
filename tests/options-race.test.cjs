@@ -126,7 +126,7 @@ test("字体目录提示完整名称，正文家族识别与标点字形加载�
     await page.locator("#font").fill("目录测试字体");
     await page.waitForFunction(() => document.getElementById("font-status").textContent === "已找到本机字体，但标点字形加载失败。");
     await page.locator("#song-font").fill("不存在的完整测试字体");
-    await page.waitForFunction(() => document.getElementById("song-font-status").textContent === "未找到列表中的本机字体，请检查名称或先安装字体。");
+    await page.waitForFunction(() => document.getElementById("song-font-status").textContent.startsWith("填写的字体名称加载失败"));
     assert.equal(await page.evaluate(() => fontCatalogCalls), 1);
   } finally { await page.close(); }
 });

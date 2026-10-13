@@ -11,6 +11,8 @@
   const previewFonts = [];
   let previewSerial = 0;
   let installedFonts = null;
+  let fontAliases = {};
+  let fontIndexCache = null;
   function fontCatalog() {
     if (!installedFonts) installedFonts = new Promise(resolve => {
       if (!chrome.fontSettings?.getFontList) { resolve([]); return; }
@@ -36,6 +38,8 @@
   function read() {
     return SPF.normalize({
       enabled: $("enabled").checked, font: $("font").value,
+      punctuationTargets: $("punctuation-targets").value.split(/\r?\n/),
+      fontAliases: Object.fromEntries([...new Set([...["font", "cjk-font", "song-font", "kai-font", "serif-chinese", "serif-western"].flatMap(id => SPF.fontNames($(id).value)), ...[...document.querySelectorAll(".site-font")].flatMap(input => SPF.fontNames(input.value))].map(name => name.toLowerCase()))].filter(name => fontAliases[name]).map(name => [name, fontAliases[name]])),
       groups: [...document.querySelectorAll("[data-group]:checked")].map(x => x.value), extra: $("extra").value,
       cjkMode: document.querySelector('input[name="cjk-mode"]:checked').value, cjkFont: $("cjk-font").value, cjkTargets: $("cjk-targets").value.split(/\r?\n/),
       replaceSong: $("replace-song").checked, songFont: $("song-font").value,
@@ -65,7 +69,7 @@
     const loads = [];
     const serifLoads = { chinese: [], western: [] };
     for (const { family, source, side, range: faceRange, weight } of SPF.fontFaces(settings)) {
-      const font = new FontFace(family, SPF.localFontSources(source), { unicodeRange: faceRange, weight });
+      const font = new FontFace(family, SPF.localFontSources(source, settings), { unicodeRange: faceRange, weight });
       previewFonts.push(font); document.fonts.add(font);
       (side ? serifLoads[side] : loads).push(font.load());
     }
@@ -82,7 +86,7 @@
         const suggestions = [...new Set(catalog.filter(name => names.some(wanted => name.toLowerCase().startsWith(wanted))))].slice(0, 4);
         $(statusId).textContent = exact ? "已找到本机字体，但" + glyphs + "字形加载失败。" : suggestions.length
           ? "未找到填写的字体名称。本机已安装的相近字体：" + suggestions.join("、") + "。"
-          : "未找到列表中的本机字体，请检查名称或先安装字体。";
+          : "填写的字体名称加载失败。可点击“识别本机字体”读取字体内部名称。";
         $(statusId).classList.add("error");
       }
     }
@@ -92,7 +96,7 @@
     }
     for (const [enabled, list, id] of [[settings.cjkMode !== "off", settings.cjkFont, "cjk-font-status"], [settings.replaceSong, settings.songFont, "song-font-status"], [settings.replaceKai, settings.kaiFont, "kai-font-status"]]) {
       if (enabled) checks.push(check(id, () => {
-        const sources = SPF.chineseFontFamilies(list).map(SPF.localFontSources).join(", ");
+        const sources = SPF.fontNames(list).map(name => SPF.localFontSources(name, settings)).join(", ");
         return new FontFace("Shared Font Availability Check", sources).load();
       }, list, true));
     }
@@ -140,6 +144,26 @@
     $("compare").textContent = comparing ? "查看替换字形" : "查看原字形";
     $("compare").setAttribute("aria-pressed", String(comparing)); preview();
   });
+  $("identify-fonts").addEventListener("click", async () => {
+    const button = $("identify-fonts"), hint = $("font-index-status");
+    if (button.disabled) return;
+    button.disabled = true; hint.classList.remove("error"); hint.textContent = "正在读取本机字体……";
+    try {
+      const fonts = await window.queryLocalFonts();
+      const signature = fonts.map(font => font.postscriptName + "\0" + font.fullName).sort().join("\n");
+      const aliases = await FontNames.buildIndex(fonts, [], (count, total) => {
+        hint.textContent = `正在识别字体内部名称：${count}/${total}。`;
+      });
+      fontIndexCache = { signature, aliases };
+      await chrome.storage.local.set({ fontNameIndex: fontIndexCache });
+      fontAliases = { ...fontAliases, ...SPF.normalizeFontAliases(aliases, 20000) };
+      hint.textContent = `已识别 ${Object.keys(aliases).length} 个字体名称。保存设置后应用到网页。`;
+      changed(); preview();
+    } catch (error) {
+      hint.textContent = error.name === "NotAllowedError" ? "请允许访问本机字体后重新识别。" : "字体名称识别失败：" + error.message;
+      hint.classList.add("error");
+    } finally { button.disabled = false; }
+  });
   $("settings").addEventListener("submit", async event => {
     event.preventDefault();
     if (!loaded || saving) return;
@@ -162,8 +186,12 @@
   });
   $("rules").addEventListener("input", event => { if (event.target.classList.contains("domain")) event.target.setCustomValidity(""); });
   form.addEventListener("input", event => { if (event.target.matches("#font, #cjk-font, #song-font, #kai-font, #serif-chinese, #serif-western, .site-font")) event.target.setCustomValidity(""); });
-  chrome.storage.local.get("settings").then(({ settings }) => {
+  chrome.storage.local.get(["settings", "fontNameIndex"]).then(({ settings, fontNameIndex }) => {
     const value = SPF.normalize(settings);
+    fontIndexCache = fontNameIndex?.aliases && typeof fontNameIndex.signature === "string" ? fontNameIndex : null;
+    fontAliases = { ...value.fontAliases, ...SPF.normalizeFontAliases(fontIndexCache?.aliases, 20000) };
+    if (fontIndexCache) $("font-index-status").textContent = "已载入本机字体名称缓存。安装或更新字体后可重新识别。";
+    $("punctuation-targets").value = value.punctuationTargets.join("\n");
     $("enabled").checked = value.enabled; $("font").value = value.font; $("extra").value = value.extra;
     document.querySelector(`input[name="cjk-mode"][value="${value.cjkMode}"]`).checked = true; $("cjk-font").value = value.cjkFont; $("cjk-targets").value = value.cjkTargets.join("\n");
     $("replace-song").checked = value.replaceSong; $("song-font").value = value.songFont;

@@ -12,7 +12,7 @@ if ($taskVersion -notmatch '^\d+\.\d+\.\d+(?:\.\d+)?$') { throw 'manifest 版本
 # 将同一份共有代码编入主世界入口，避免 Chromium 按文件名去重内容脚本。
 $taskRuntime = [System.IO.File]::ReadAllText((Join-Path $PSScriptRoot 'shared.js')) + "`n" + [System.IO.File]::ReadAllText((Join-Path $PSScriptRoot 'engine.js'))
 [System.IO.File]::WriteAllText((Join-Path $PSScriptRoot 'main-runtime.js'), $taskRuntime, (New-Object System.Text.UTF8Encoding($false)))
-$taskNames = @('manifest.json', 'background.js', 'shared.js', 'main-runtime.js', 'bridge.js', 'options.html', 'options.css', 'options.js', 'README.md', 'CHANGELOG.md', 'PRIVACY.md', 'LICENSE')
+$taskNames = @('manifest.json', 'background.js', 'shared.js', 'main-runtime.js', 'bridge.js', 'font-names.js', 'options.html', 'options.css', 'options.js', 'README.md', 'CHANGELOG.md', 'PRIVACY.md', 'LICENSE')
 $taskOutput = [System.IO.Path]::GetFullPath($OutputDirectory)
 New-Item -ItemType Directory -Path $taskOutput -Force | Out-Null
 $taskZip = Join-Path $taskOutput "chinese-western-font-replacer-v$taskVersion.zip"

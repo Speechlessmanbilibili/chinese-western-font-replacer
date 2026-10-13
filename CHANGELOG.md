@@ -2,6 +2,14 @@
 
 根据 Git 提交、版本标签及 GitHub Release 记录整理。版本标题链接到对应 Release，日期采用首次发布时的北京时间；同版本安装包的后续更新另行标注日期。
 
+## [v1.2.2](https://github.com/Speechlessmanbilibili/chinese-western-font-replacer/releases/tag/v1.2.2)（2026-10-13）
+
+- 按原 `font-family` 的首项判断标点注入，修复后备位置的无衬线字体触发替换的问题。
+- 添加可编辑的常见无衬线字体名单，覆盖 `Arial`、`Helvetica`、`Verdana`、`Tahoma`、`Segoe UI` 等名称。
+- 为首项 `var()` 建立专用引用，保留普通后备引用、CSS 级联、继承、状态与循环回退，关闭后清理专用变量。
+- 添加“识别本机字体”，读取字体内部的多语言名称，支持中文字体名，缓存名称索引并保留输入及保存内容。
+- 支持 TTC 字体集合和可变字重范围，同步设置页预览及网页组合字体加载。
+
 ## [v1.2.1](https://github.com/Speechlessmanbilibili/chinese-western-font-replacer/releases/tag/v1.2.1)（2026-10-11）
 
 - 将 `Times New Roman` 纳入衬线体中西文字体组合，原位应用中文、西文及共用字符设置，保留原字体后备和优先级。

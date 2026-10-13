@@ -6,6 +6,7 @@
   <title>中西文字体替换</title>
   <link rel="stylesheet" href="options.css">
   <script src="shared.js" defer></script>
+  <script src="font-names.js" defer></script>
   <script src="options.js" defer></script>
 </head>
 <body>
@@ -14,11 +15,17 @@
     <form id="settings">
       <section class="card">
         <div class="section-heading"><h2>标点字体</h2><label class="toggle"><input type="checkbox" id="enabled" checked><span>全局开启</span></label></div>
-        <p class="help">字体列表含sans、Hei/Heiti或“黑体”等名称标签时注入标点字体，忽略英文大小写。字体变量和回退按各自的原字体名称判断。</p>
+        <p class="help">原字体首项命中常见无衬线名单，或名称含sans、Hei/Heiti、“黑体”等标签时注入标点字体，忽略英文大小写。后备字体不参与首项判定。</p>
         <label for="font">本机字体列表</label>
         <input id="font" autocomplete="off" spellcheck="false" value="PingFang UI SC" placeholder="例如：PingFang UI SC, PingFang SC" maxlength="4000" required>
         <p class="help">多个字体用英文或中文逗号分隔，按填写顺序选择字形；名称本身含逗号时用引号包住。网站原来的字体列表保留在专用字体之后。</p>
         <p id="font-status" class="help" aria-live="polite"></p>
+        <details><summary>常见无衬线字体名单</summary><div class="details-body"><label for="punctuation-targets">每行一个字体名称，按完整名称匹配首项</label><textarea id="punctuation-targets" rows="7" spellcheck="false"></textarea></div></details>
+      </section>
+      <section class="card">
+        <div class="section-heading"><h2>本机字体名称</h2><button type="button" id="identify-fonts" class="quiet">识别本机字体</button></div>
+        <p class="help">读取字体内部的中文及其他语言名称，输入框保留原名称，加载时自动使用同一字体的可用名称。首次识别时允许浏览器访问本机字体，识别结果在本机缓存。</p>
+        <p id="font-index-status" class="help" aria-live="polite"></p>
       </section>
       <section class="card">
         <h2>简体中文正文黑体</h2>

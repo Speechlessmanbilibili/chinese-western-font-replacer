@@ -15,6 +15,9 @@
   const inlineStyles = new WeakMap();
   const variableSources = new Map();
   const variableSnapshots = new Map();
+  const mirrorSnapshots = new Map();
+  const headNames = new Map();
+  const headPrefix = "--spf-head-" + Math.random().toString(36).slice(2) + "-";
   let variableTimer = 0;
   let trackedVariables = new Set();
   let nonSansVariables = new Set();
@@ -45,6 +48,32 @@
   function appendAllowed(value) {
     return !(nonSansVariables.size || serifVariables.size) || !value.includes("--") || ![...SPF.variableReferences(value)].some(name => nonSansVariables.has(name) || serifVariables.has(name));
   }
+  function originalFont(style) {
+    const value = style.getPropertyValue("font-family"), saved = snapshots.get(style);
+    return saved?.modified === value ? saved.value : value;
+  }
+  function originalVariable(style, name) {
+    const value = style.getPropertyValue(name), saved = variableSnapshots.get(style)?.get(name);
+    return saved?.modified === value ? saved.value : value;
+  }
+  function headName(name) {
+    if (!headNames.has(name)) headNames.set(name, headPrefix + headNames.size);
+    return headNames.get(name);
+  }
+  function releaseMirrors(style, keep = null) {
+    for (const [name, saved] of mirrorSnapshots.get(style) || []) {
+      if (keep?.has(name)) continue;
+      if (style.getPropertyValue(saved.name) === saved.modified) {
+        writing = true;
+        try {
+          if (saved.previous) setProperty.call(style, saved.name, saved.previous, saved.previousPriority);
+          else removeProperty.call(style, saved.name);
+        } finally { writing = false; }
+      }
+      mirrorSnapshots.get(style).delete(name);
+    }
+    if (!mirrorSnapshots.get(style)?.size) mirrorSnapshots.delete(style);
+  }
   function patchStyle(style, owner = null, refreshVariables = false) {
     if (!active || writing || !style || style.parentRule?.type === CSSRule.FONT_FACE_RULE) return;
     trackVariables(style, owner);
@@ -70,8 +99,8 @@
       return;
     }
     const value = owned ? saved.value : current;
-    const serifDependent = config.replaceSerif && serifVariables.size > 0 && value.includes("--") && [...SPF.variableReferences(value)].some(name => serifVariables.has(name));
-    const modified = prepend(value, config, appendAllowed(value), serifDependent);
+    const append = appendAllowed(value);
+    const modified = prepend(value, config, append, false, !append, headName);
     if (modified === current || owned && modified === saved.proposed) { if (modified === value) snapshots.delete(style); return; }
     const priority = owned ? saved.priority : style.getPropertyPriority("font-family");
     if (modified === value) snapshots.delete(style);
@@ -101,9 +130,9 @@
     }
     const previous = variableSources.get(style);
     if (previous?.signature === text) { if (owner) previous.owner = owner; return; }
-    const variables = Array.from({ length: style.length }, (_, i) => style.item(i)).filter(name => name.startsWith("--"));
+    const variables = Array.from({ length: style.length }, (_, i) => style.item(i)).filter(name => name.startsWith("--") && !name.startsWith(headPrefix));
     const values = new Map(variables.map(name => [name, style.getPropertyValue(name)]));
-    const fontKey = [...SPF.variableReferences(style.getPropertyValue("font-family"))].sort().join("\0");
+    const fontKey = [...SPF.variableReferences(originalFont(style))].sort().join("\0");
     const changed = previous ? previous.fontKey !== fontKey || [...new Set([...previous.variables, ...variables])].some(name => trackedVariables.has(name) && previous.values.get(name) !== values.get(name)) : Boolean(fontKey) || variables.some(name => trackedVariables.has(name));
     variableSources.set(style, { signature: text, variables, values, fontKey, owner: owner || previous?.owner });
     if (changed && !variableTimer) variableTimer = setTimeout(updateVariables, 0);
@@ -112,6 +141,9 @@
     variableTimer = 0;
     if (!active || !SPF.hasFonts(config)) return;
     const references = new Set();
+    const headReferences = new Set();
+    const punctuationEnabled = Boolean(SPF.unicodeRange(config));
+    const headGraph = new Map();
     const graph = new Map();
     const rootInline = document.documentElement?.style;
     function overriddenAtRoot(style, name) {
@@ -124,11 +156,14 @@
       return style.getPropertyPriority(name) !== "important" || rootInline.getPropertyPriority(name) === "important";
     }
     for (const [style, source] of variableSources) {
-      for (const name of SPF.variableReferences(style.getPropertyValue("font-family"))) references.add(name);
+      for (const name of SPF.variableReferences(originalFont(style))) references.add(name);
+      if (punctuationEnabled) for (const name of SPF.firstVariableReferences(originalFont(style))) headReferences.add(name);
       for (const name of source.variables) {
         if (overriddenAtRoot(style, name)) continue;
         if (!graph.has(name)) graph.set(name, new Set());
-        for (const next of SPF.variableReferences(style.getPropertyValue(name))) graph.get(name).add(next);
+        for (const next of SPF.variableReferences(originalVariable(style, name))) graph.get(name).add(next);
+        if (!headGraph.has(name)) headGraph.set(name, new Set());
+        for (const next of SPF.firstVariableReferences(originalVariable(style, name))) headGraph.get(name).add(next);
       }
     }
     const queue = [...references];
@@ -136,6 +171,13 @@
       if (!references.has(next)) { references.add(next); queue.push(next); }
     }
     trackedVariables = references;
+    const headQueue = [...headReferences];
+    for (let i = 0; i < headQueue.length; i++) {
+      for (const next of headGraph.get(headQueue[i]) || []) {
+        if (!headReferences.has(next)) { headReferences.add(next); headQueue.push(next); }
+      }
+    }
+    for (const name of headReferences) headName(name);
     // 字体变量有宋体、楷体等取值时，沿依赖图传播“跳过追加”。
     const dependents = new Map();
     const nonSans = new Set();
@@ -161,6 +203,8 @@
     }
     serifVariables = serif;
     for (const [style, source] of variableSources) {
+      const neededMirrors = new Set(source.variables.filter(name => headReferences.has(name)));
+      releaseMirrors(style, neededMirrors);
       for (const [name, saved] of variableSnapshots.get(style) || []) if (!references.has(name)) {
         if (style.getPropertyValue(name) === saved.modified) {
           writing = true;
@@ -174,7 +218,7 @@
         const value = style.getPropertyValue(name);
         const saved = variableSnapshots.get(style)?.get(name);
         if (saved?.modified === value) continue;
-        const modified = SPF.prepend(value, config, false, false, false);
+        const modified = SPF.chineseFamilies(value, config, false);
         if (modified === value) { variableSnapshots.get(style)?.delete(name); continue; }
         const priority = style.getPropertyPriority(name);
         if (!variableSnapshots.has(style)) variableSnapshots.set(style, new Map());
@@ -182,6 +226,21 @@
         writing = true;
         try { setProperty.call(style, name, modified, priority); }
         finally { writing = false; }
+      }
+      // 同位置的专用变量保留原生级联、继承与状态；后备引用沿用原变量。
+      for (const name of neededMirrors) {
+        const modified = SPF.prepend(originalVariable(style, name), config, false, false, false, headName);
+        const target = headName(name), priority = style.getPropertyPriority(name);
+        const current = style.getPropertyValue(target);
+        if (!mirrorSnapshots.has(style)) mirrorSnapshots.set(style, new Map());
+        const saved = mirrorSnapshots.get(style).get(name) || { name: target, previous: current, previousPriority: style.getPropertyPriority(target) };
+        if (current !== modified || style.getPropertyPriority(target) !== priority) {
+          writing = true;
+          try { setProperty.call(style, target, modified, priority); }
+          finally { writing = false; }
+        }
+        saved.modified = style.getPropertyValue(target);
+        mirrorSnapshots.get(style).set(name, saved);
       }
       source.signature = style.cssText;
       source.values = new Map(source.variables.map(name => [name, style.getPropertyValue(name)]));
@@ -192,6 +251,7 @@
     const saved = snapshots.get(style);
     if (saved && style.getPropertyValue("font-family") === saved.modified) write(style, saved.value, saved.priority);
     snapshots.delete(style);
+    releaseMirrors(style);
     for (const [name, entry] of variableSnapshots.get(style) || []) if (style.getPropertyValue(name) === entry.modified) {
       writing = true;
       try { setProperty.call(style, name, entry.value, entry.priority); }
@@ -553,6 +613,8 @@
       if (style.getPropertyValue("font-family") === saved.modified) write(style, saved.value, saved.priority);
     }
     snapshots.clear();
+    for (const style of [...mirrorSnapshots.keys()]) releaseMirrors(style);
+    headNames.clear();
     for (const [style, variables] of variableSnapshots) for (const [name, saved] of variables) if (style.getPropertyValue(name) === saved.modified) {
       writing = true;
       try { setProperty.call(style, name, saved.value, saved.priority); }
@@ -568,7 +630,7 @@
   }
   function configure(settings) {
     const next = normalize(settings);
-    const signature = JSON.stringify([next.enabled, next.font, next.groups, next.extra, next.cjkMode, next.cjkFont, next.cjkTargets, next.replaceSong, next.songFont, next.replaceKai, next.kaiFont, next.replaceSerif, next.serifChinese, next.serifWestern, next.serifShared]);
+    const signature = JSON.stringify([next.enabled, next.font, next.groups, next.extra, next.punctuationTargets, next.fontAliases, next.cjkMode, next.cjkFont, next.cjkTargets, next.replaceSong, next.songFont, next.replaceKai, next.kaiFont, next.replaceSerif, next.serifChinese, next.serifWestern, next.serifShared]);
     if (config?.signature === signature) return;
     stop();
     config = { ...next, signature };
@@ -576,7 +638,7 @@
     if (active) {
       // FontFace 与 @font-face 使用相同的字符范围机制，注册后也覆盖 Shadow DOM。
       for (const { family, source, range, weight } of SPF.fontFaces(next)) {
-        const face = new FontFace(family, SPF.localFontSources(source), { unicodeRange: range, display: "swap", weight });
+        const face = new FontFace(family, SPF.localFontSources(source, next), { unicodeRange: range, display: "swap", weight });
         registeredFonts.push(face); document.fonts.add(face);
         face.load().catch(() => {});
       }
