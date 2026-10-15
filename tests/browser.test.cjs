@@ -568,6 +568,7 @@ test("中文字体名称从真实 TTC 名称表识别，保存后用同一简中
     });
     await page.locator("#replace-serif").check();
     await page.locator("#serif-chinese").fill("思源宋体 VF");
+    await page.locator("#font-library > summary").click();
     await page.locator("#identify-fonts").click();
     await page.waitForFunction(() => !document.getElementById("identify-fonts").disabled, null, { timeout: 15000 });
     assert.ok((await page.locator("#font-index-status").textContent()).startsWith("已识别"), await page.locator("#font-index-status").textContent());

@@ -272,7 +272,8 @@ test("document.open 重建页面后保留字体处理及配置开关", async () 
   await page.evaluate(() => { document.open(); document.write('<style>p{font-family:Verdana,sans-serif}</style><p id=t>ABC“”</p>'); document.close(); });
   await page.waitForFunction(() => getComputedStyle(document.getElementById("t")).fontFamily.includes("Shared Punctuation Font"));
   assert.equal(await page.evaluate(() => [...document.fonts].length), 1);
-  assert.ok((await page.evaluate(() => getComputedStyle(document.documentElement).fontFamily)).includes("PingFang UI SC"));
+  // 根字体由后台独立注入，等待其完成后再检查配置开关。
+  await page.waitForFunction(() => getComputedStyle(document.documentElement).fontFamily.includes("PingFang UI SC"));
   await settings({ ...defaultSettings, enabled: false });
   await page.waitForFunction(() => [...document.fonts].length === 0);
   assert.equal(await page.locator("#t").evaluate(node => getComputedStyle(node).fontFamily), "Verdana, sans-serif");

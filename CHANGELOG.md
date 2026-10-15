@@ -2,6 +2,14 @@
 
 根据 Git 提交、版本标签及 GitHub Release 记录整理。版本标题链接到对应 Release，日期采用首次发布时的北京时间；同版本安装包的后续更新另行标注日期。
 
+## [v1.3.0](https://github.com/Speechlessmanbilibili/chinese-western-font-replacer/releases/tag/v1.3.0)（2026-10-15）
+
+- 按标点与字符、中文字体、衬线组合、试排和站点设置重新编排界面，加入章节目录。
+- 使用纸色、衬线标题、朱砂控件与分行标注的字样预览，适配明暗主题和窄屏。
+- 将代码预览字体改为 `Consolas`。
+- 将本机字体名称识别移至设置页底部，默认折叠，并提供展开与收起动画。
+- 添加同系列扩展图标，同步工具栏、扩展管理页、设置页与标签页标识。
+
 ## [v1.2.2](https://github.com/Speechlessmanbilibili/chinese-western-font-replacer/releases/tag/v1.2.2)（2026-10-13）
 
 - 按原 `font-family` 的首项判断标点注入，修复后备位置的无衬线字体触发替换的问题。

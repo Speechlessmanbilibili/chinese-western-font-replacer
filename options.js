@@ -86,7 +86,7 @@
         const suggestions = [...new Set(catalog.filter(name => names.some(wanted => name.toLowerCase().startsWith(wanted))))].slice(0, 4);
         $(statusId).textContent = exact ? "已找到本机字体，但" + glyphs + "字形加载失败。" : suggestions.length
           ? "未找到填写的字体名称。本机已安装的相近字体：" + suggestions.join("、") + "。"
-          : "填写的字体名称加载失败。可点击“识别本机字体”读取字体内部名称。";
+          : "填写的字体名称加载失败。可在页面底部展开“本机字体名称”，识别字体内部名称。";
         $(statusId).classList.add("error");
       }
     }
