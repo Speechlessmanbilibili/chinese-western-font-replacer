@@ -12,7 +12,7 @@ if ($taskVersion -notmatch '^\d+\.\d+\.\d+(?:\.\d+)?$') { throw 'manifest 版本
 # 将同一份共有代码编入主世界入口，避免 Chromium 按文件名去重内容脚本。
 $taskRuntime = [System.IO.File]::ReadAllText((Join-Path $PSScriptRoot 'shared.js')) + "`n" + [System.IO.File]::ReadAllText((Join-Path $PSScriptRoot 'engine.js'))
 [System.IO.File]::WriteAllText((Join-Path $PSScriptRoot 'main-runtime.js'), $taskRuntime, (New-Object System.Text.UTF8Encoding($false)))
-$taskNames = @('manifest.json', 'background.js', 'shared.js', 'main-runtime.js', 'bridge.js', 'font-names.js', 'options.html', 'options.css', 'options.js', 'icons/source.svg', 'icons/icon-16.png', 'icons/icon-32.png', 'icons/icon-48.png', 'icons/icon-128.png', 'README.md', 'CHANGELOG.md', 'PRIVACY.md', 'LICENSE')
+$taskNames = @('manifest.json', 'background.js', 'shared.js', 'main-runtime.js', 'bridge.js', 'font-names.js', 'options.html', 'options.css', 'options.js', 'popup.html', 'popup.css', 'popup.js', 'kit', 'icons/source.svg', 'icons/icon-16.png', 'icons/icon-32.png', 'icons/icon-48.png', 'icons/icon-128.png', 'README.md', 'CHANGELOG.md', 'PRIVACY.md', 'LICENSE')
 $taskOutput = [System.IO.Path]::GetFullPath($OutputDirectory)
 New-Item -ItemType Directory -Path $taskOutput -Force | Out-Null
 $taskZip = Join-Path $taskOutput "chinese-western-font-replacer-v$taskVersion.zip"
@@ -22,10 +22,16 @@ $taskStream = [System.IO.File]::Open($taskZip, [System.IO.FileMode]::Create)
 $taskArchive = $null
 try {
     $taskArchive = New-Object System.IO.Compression.ZipArchive($taskStream, [System.IO.Compression.ZipArchiveMode]::Create, $true)
+    $taskRoot = [System.IO.Path]::GetFullPath($PSScriptRoot).TrimEnd('\') + '\'
     foreach ($taskName in $taskNames) {
         $taskSource = Join-Path $PSScriptRoot $taskName
         if (-not (Test-Path -LiteralPath $taskSource)) { throw "缺少发布文件：$taskName" }
-        [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($taskArchive, $taskSource, $taskName.Replace('\', '/'), [System.IO.Compression.CompressionLevel]::Optimal) | Out-Null
+        $taskItem = Get-Item -LiteralPath $taskSource
+        $taskEntries = if ($taskItem.PSIsContainer) { @(Get-ChildItem -LiteralPath $taskItem.FullName -File -Recurse | Sort-Object FullName) } else { @($taskItem) }
+        foreach ($taskEntry in $taskEntries) {
+            $taskEntryName = $taskEntry.FullName.Substring($taskRoot.Length).Replace('\', '/')
+            [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($taskArchive, $taskEntry.FullName, $taskEntryName, [System.IO.Compression.CompressionLevel]::Optimal) | Out-Null
+        }
     }
 } finally {
     if ($null -ne $taskArchive) { $taskArchive.Dispose() }

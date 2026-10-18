@@ -5,7 +5,7 @@
   let loaded = false;
   let saving = false;
   const form = $("settings");
-  const saveButton = form.querySelector('button[type="submit"]');
+  const saveButton = $("save");
   form.inert = true; saveButton.disabled = true; form.setAttribute("aria-busy", "true");
   let comparing = false;
   const previewFonts = [];
@@ -66,6 +66,10 @@
     $("font-status").classList.remove("error");
     for (const id of ["cjk-font-status", "song-font-status", "kai-font-status", "serif-chinese-status", "serif-western-status"]) { $(id).textContent = ""; $(id).classList.remove("error"); }
     for (const item of previewStyles) item.node.style.fontFamily = comparing ? item.family : SPF.prepend(item.family, settings);
+    for (const node of document.querySelectorAll(".group .glyphs")) {
+      if (!node.dataset.family) node.dataset.family = getComputedStyle(node).fontFamily;
+      node.style.fontFamily = comparing ? node.dataset.family : SPF.prepend(node.dataset.family, settings);
+    }
     const loads = [];
     const serifLoads = { chinese: [], western: [] };
     for (const { family, source, side, range: faceRange, weight } of SPF.fontFaces(settings)) {
@@ -202,7 +206,9 @@
     for (const rule of value.siteRules) addRule(rule);
     saved = JSON.stringify(read()); loaded = true; form.inert = false; saveButton.disabled = false; form.setAttribute("aria-busy", "false"); changed(); preview();
   }).catch(error => { form.inert = false; form.setAttribute("aria-busy", "false"); status("读取设置失败：" + error.message, true); });
-  // 原生 details 使用实际高度过渡，关闭时保留内容直至动画结束。
+  // 共用套件负责目录高亮与详情动画；测试环境未加载套件时保持原行为。
+  if (window.DSH) { DSH.initRailSpy(); DSH.initDetails(); }
+  // 原生details使用实际高度过渡，关闭时保留内容直至动画结束。
   for (const details of document.querySelectorAll("details")) {
     let animation = null;
     let detailTarget = false;

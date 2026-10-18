@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="zh-CN" data-volume="02">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>中西文字体替换</title>
+  <link rel="icon" href="icons/source.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="kit/kit.css">
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body class="popup">
+  <main class="popup-shell">
+    <header class="popup-head">
+      <div class="popup-brand">
+        <img src="icons/source.svg" width="26" height="26" alt="">
+        <strong>中西文字体替换</strong>
+      </div>
+    </header>
+
+    <section class="popup-site" aria-labelledby="site-heading">
+      <p class="popup-label" id="site-heading">当前网站</p>
+      <p id="host" class="popup-host">正在读取……</p>
+
+      <div class="popup-row">
+        <span class="popup-row-label">本站替换</span>
+        <fieldset id="site-mode" class="segmented popup-seg">
+          <legend class="sr-only">本站替换</legend>
+          <label><input type="radio" name="site-mode" value="inherit"><span>跟随全局</span></label>
+          <label><input type="radio" name="site-mode" value="on"><span>开启</span></label>
+          <label><input type="radio" name="site-mode" value="off"><span>关闭</span></label>
+        </fieldset>
+      </div>
+
+      <div class="popup-row">
+        <span class="popup-row-label">中文正文</span>
+        <fieldset id="site-cjk" class="segmented popup-seg">
+          <legend class="sr-only">本站中文正文</legend>
+          <label><input type="radio" name="site-cjk" value="inherit"><span>跟随全局</span></label>
+          <label><input type="radio" name="site-cjk" value="off"><span>网站字体</span></label>
+          <label><input type="radio" name="site-cjk" value="replace"><span>替换</span></label>
+        </fieldset>
+      </div>
+
+      <p id="effective" class="popup-effective">正在读取当前网站设置……</p>
+    </section>
+
+    <div class="popup-global">
+      <div>
+        <p class="popup-global-title">全局替换</p>
+        <p class="field-hint" id="global-state">读取中</p>
+      </div>
+      <label class="switch">
+        <input id="enabled" type="checkbox" role="switch" aria-label="全局替换">
+        <span class="track" aria-hidden="true"></span>
+      </label>
+    </div>
+
+    <p id="status" class="popup-status" role="status" aria-live="polite"></p>
+    <button id="open-options" class="btn" type="button">打开完整设置
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 12 12 4M4 4h8v8"/></svg>
+    </button>
+  </main>
+  <script src="shared.js"></script>
+  <script src="kit/kit.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

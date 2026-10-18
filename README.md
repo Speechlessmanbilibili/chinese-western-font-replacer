@@ -10,10 +10,10 @@
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/ui/options-dark.png">
-  <img src="docs/ui/options-light.png" alt="中西文字体替换的书页式设置页，按标点、中文字体、衬线组合、试样与站点分章">
+  <img src="docs/ui/options-light.png" alt="中西文字体替换的工作台式设置页，按标点、中文正文、衬线组合与站点分区">
 </picture>
 
-[完整设置页](docs/ui/options-full.png) · [暗色主题](docs/ui/options-dark.png) · [代码试样与可选工具](docs/ui/options-tools.png)
+[完整设置页](docs/ui/options-full.png) · [暗色主题](docs/ui/options-dark.png) · [工具栏弹窗](docs/ui/popup-light.png) · [本机字体识别](docs/ui/options-tools.png)
 
 ## 从一个标点，到一整段文字
 
@@ -25,7 +25,7 @@
 | 楷体替换 | 为常见简中楷体名称指定字体列表 | 关闭 |
 | 衬线中西文组合 | 分别指定中文、西文字体，并选择共用字符来源 | 关闭 |
 
-设置页提供无衬线正文、宋体、楷体、衬线混排与代码五组试样，可切换原字形对照。代码试样使用 Consolas，页面支持明暗主题与窄屏。
+设置页提供无衬线正文、宋体、楷体与衬线混排四组试样，右侧常驻并按草稿注册真实字形，可切换原字形对照。页面支持明暗主题与窄屏。
 
 ## 安装与开始使用
 

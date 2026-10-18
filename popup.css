@@ -1,0 +1,24 @@
+/* 中西文字体替换 · 弹窗 */
+html:has(body.popup) { width: 400px; background: var(--paper); }
+body.popup { width: 400px; max-width: 100vw; margin: 0; }
+.popup-shell { padding: 18px 18px 16px; }
+.popup-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+.popup-brand { display: inline-flex; align-items: center; gap: 9px; min-width: 0; }
+.popup-brand img { width: 26px; height: 26px; }
+.popup-brand strong { font-size: 13px; font-weight: 600; }
+.popup-site { padding: 15px 0 13px; border-bottom: 1px solid var(--line); }
+.popup-label { color: var(--ink-3); font-size: 10px; letter-spacing: .1em; margin-bottom: 5px; }
+.popup-host { font: 22px/1.4 var(--font-display); overflow-wrap: anywhere; }
+.popup-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 11px; }
+.popup-row-label { color: var(--ink-2); font-size: 11px; white-space: nowrap; }
+.popup-seg { flex: none; }
+.popup-seg span { padding: 5px 8px; font-size: 11px; }
+.popup-effective { margin-top: 11px; color: var(--ink-3); font-size: 11px; line-height: 1.7; overflow-wrap: anywhere; }
+.popup-global { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 13px 0; border-bottom: 1px solid var(--line); }
+.popup-global-title { font-size: 13px; font-weight: 500; }
+.popup-status { min-height: 18px; margin-top: 9px; color: var(--ink-3); font-size: 11px; }
+.popup-status.error { color: var(--danger); }
+.popup-status.success { color: var(--ok); }
+.popup-shell #open-options { width: 100%; margin-top: 5px; justify-content: space-between; }
+.popup-shell #open-options svg { width: 14px; height: 14px; }
+.popup[data-unsupported="true"] .popup-site { opacity: .6; }

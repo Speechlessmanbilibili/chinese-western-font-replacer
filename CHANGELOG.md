@@ -2,6 +2,15 @@
 
 根据 Git 提交、版本标签及 GitHub Release 记录整理。版本标题链接到对应 Release，日期采用首次发布时的北京时间；同版本安装包的后续更新另行标注日期。
 
+## [v1.4.0](https://github.com/Speechlessmanbilibili/chinese-western-font-replacer/releases/tag/v1.4.0)（2026-10-18）
+
+- 将设置页重构为三栏工作台：固定应用栏、章节目录、常驻试样与分区设置，统一控件与站点规则。
+- 试样常驻显示真实标点字形，并保留原字形对比、字符与 Unicode 范围。
+- 添加工具栏弹窗，可切换当前站点的替换行为与中文正文模式，并打开完整设置。
+- 使用 `unicode-range` 分离中西文字体，中文引号、破折号与省略号由中文字体排，西文与数字仍用西文字体。
+- 界面文案改用 `text-autospace`，移除中西文之间的手动空格。
+- 适配明暗主题、窄屏、强制色彩与减少动效偏好。
+
 ## [v1.3.0](https://github.com/Speechlessmanbilibili/chinese-western-font-replacer/releases/tag/v1.3.0)（2026-10-15）
 
 - 按标点与字符、中文字体、衬线组合、试排和站点设置重新编排界面，加入章节目录。
