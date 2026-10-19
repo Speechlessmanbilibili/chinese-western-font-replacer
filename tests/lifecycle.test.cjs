@@ -296,3 +296,11 @@ test("GBK 跨域字体变量及中文字体名正确解码，子导入继承父�
   assert.equal((await imported.locator("#t").evaluate(node => getComputedStyle(node).fontFamily)).includes("Shared Punctuation Font"), true);
 });
 test("生命周期回归没有页面脚本错误", () => assert.deepEqual(errors, []));
+
+test("跨域样式副本中的注册字体属性保留默认值", async () => {
+  crossRoutes.set("/registered.css", '@property --registered-font{syntax:"*";inherits:false;initial-value:Arial}#t{font-family:var(--registered-font)}');
+  const page = await pageFor("registered-cross", '<link rel=stylesheet href="' + crossOrigin + '/registered.css"><p id=t>ABC“”</p>');
+  await page.waitForFunction(() => getComputedStyle(document.getElementById("t")).fontFamily.includes("Arial"));
+  assert.ok((await page.locator("#t").evaluate(n => getComputedStyle(n).fontFamily)).includes("Shared Punctuation Font"));
+  await page.close();
+});

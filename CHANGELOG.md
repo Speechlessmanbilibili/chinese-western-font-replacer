@@ -8,6 +8,7 @@
 - 工具栏弹窗直接编辑已命中的默认端口规则。
 - 同名字体变量的后备判断跟随各自作用域、继承和交互状态。
 - 保留 `@property` 与 `CSS.registerProperty()` 的默认值、继承方式和类型校验，停用后清理辅助注册。
+- 动态改写及跨域样式表中的注册属性同步更新，冻结的注册参数保留原生字符串转换行为。
 - 支持未加引号的字体名称中的 CSS 转义。
 
 ## [v1.4.0](https://github.com/Speechlessmanbilibili/chinese-western-font-replacer/releases/tag/v1.4.0)（2026-10-18）

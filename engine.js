@@ -91,7 +91,7 @@
       }
     };
     for (const sheet of [...document.styleSheets, ...document.adoptedStyleSheets]) {
-      if (ownNodes.has(sheet.ownerNode)) continue;
+      if (sheet.ownerNode === propertySheet) continue;
       try { visit(sheet.cssRules); } catch {}
     }
     for (const [name, entry] of scriptProperties) {
@@ -270,15 +270,18 @@
       }
       for (const name of source.variables) {
         if (!references.has(name)) continue;
-        const value = style.getPropertyValue(name);
+        const current = style.getPropertyValue(name);
         const saved = variableSnapshots.get(style)?.get(name);
-        if (saved?.modified === value) continue;
+        const value = saved?.modified === current ? saved.value : current;
         const definition = propertyDefinitions.get(name);
         const modified = definition && definition.syntax !== "*" ? value : fontValue(value, false, false);
-        if (modified === value) { variableSnapshots.get(style)?.delete(name); continue; }
+        if (modified === current) { if (modified === value) variableSnapshots.get(style)?.delete(name); continue; }
         const priority = style.getPropertyPriority(name);
-        if (!variableSnapshots.has(style)) variableSnapshots.set(style, new Map());
-        variableSnapshots.get(style).set(name, { value, priority, modified });
+        if (modified === value) variableSnapshots.get(style)?.delete(name);
+        else {
+          if (!variableSnapshots.has(style)) variableSnapshots.set(style, new Map());
+          variableSnapshots.get(style).set(name, { value, priority, modified });
+        }
         writing = true;
         try { setProperty.call(style, name, modified, priority); }
         finally { writing = false; }
@@ -378,6 +381,7 @@
   }
   function patchRules(rules) {
     for (const rule of [...rules]) {
+      if (rule.constructor.name === "CSSPropertyRule" && !variableTimer) variableTimer = setTimeout(updateVariables, 0);
       // @font-face 的 family 定义字体名称，保留原声明；只改写元素使用的字体列表。
       if (rule.type !== CSSRule.FONT_FACE_RULE && rule.style) patchStyle(rule.style, rule);
       if (rule.type === CSSRule.IMPORT_RULE) {
@@ -586,6 +590,7 @@
   }
   function inspectSheet(sheet) {
     if (!active || !sheet || ownNodes.has(sheet.ownerNode)) return;
+    if (propertyDefinitions.size && !variableTimer) variableTimer = setTimeout(updateVariables, 0);
     if (sheet.ownerNode) {
       const previous = resourceSheets.get(sheet.ownerNode);
       if (previous && previous !== sheet) releaseSheet(previous);
@@ -805,8 +810,8 @@
         } };
       };
       const proxy = definition && (typeof definition === "object" || typeof definition === "function")
-        ? new Proxy(definition, { get(target, key) {
-          const value = Reflect.get(target, key, target);
+        ? new Proxy({}, { get(_target, key) {
+          const value = Reflect.get(definition, key, definition);
           if (key === "inherits") { values[key] = Boolean(value); return value; }
           return ["name", "syntax", "initialValue"].includes(key) ? capture(value, key) : value;
         } }) : definition;

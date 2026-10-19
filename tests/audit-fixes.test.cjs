@@ -47,8 +47,21 @@ test("@property 与脚本注册保留默认值、非继承和类型校验，关�
     const p = document.createElement("p"); p.id = "script"; p.textContent = "ABC“”"; p.style.fontFamily = "var(--script-font)"; document.body.append(p);
   });
   await page.waitForFunction(() => getComputedStyle(document.getElementById("script")).fontFamily.includes("Shared Punctuation Font"));
+  const conversions = await page.evaluate(() => {
+    let conversions = 0;
+    CSS.registerProperty(Object.freeze({ name: { toString() { conversions++; return "--frozen-font"; } }, syntax: "*", inherits: false, initialValue: "Arial" }));
+    const p = document.createElement("p"); p.id = "frozen"; p.textContent = "ABC“”"; p.style.fontFamily = "var(--frozen-font)"; document.body.append(p);
+    return conversions;
+  });
+  assert.equal(conversions, 1);
+  await page.waitForFunction(() => getComputedStyle(document.getElementById("frozen")).fontFamily.includes("Shared Punctuation Font"));
+  await page.evaluate(() => {
+    document.styleSheets[0].deleteRule(0);
+    document.styleSheets[0].insertRule('@property --f{syntax:"*";inherits:false;initial-value:Georgia}', 0);
+  });
+  await page.waitForFunction(() => getComputedStyle(document.getElementById("a")).fontFamily === "Georgia");
   await page.evaluate(() => window.dispatchEvent(new CustomEvent(SPF.CHANNEL + "/config", { detail: JSON.stringify({ enabled: false }) })));
-  assert.equal(await page.locator("#a").evaluate(n => getComputedStyle(n).fontFamily), "Arial");
+  assert.equal(await page.locator("#a").evaluate(n => getComputedStyle(n).fontFamily), "Georgia");
   assert.equal(await page.locator("#script").evaluate(n => getComputedStyle(n).fontFamily), "Arial");
   assert.equal(await page.evaluate(() => [...document.styleSheets].flatMap(s => [...s.cssRules]).filter(r => r.constructor.name === "CSSPropertyRule" && r.name.startsWith("--spf-head-")).length), 0);
   const loaded = await page.evaluate(async () => (await new FontFace("Escape Check", SPF.localFontSources(SPF.fontNames(String.raw`Courier\20 New`)[0])).load()).status);
