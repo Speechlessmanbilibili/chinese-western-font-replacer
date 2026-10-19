@@ -2,7 +2,7 @@
 
 根据 Git 提交、版本标签及 GitHub Release 记录整理。版本标题链接到对应 Release，日期采用首次发布时的北京时间；同版本安装包的后续更新另行标注日期。
 
-## v1.4.1（2026-10-19，未发布）
+## [v1.4.1](https://github.com/Speechlessmanbilibili/chinese-western-font-replacer/releases/tag/v1.4.1)（2026-10-19）
 
 - 保存设置时按字段合并最新配置，保留其他窗口的开关、站点规则与保存期间的新草稿。
 - 工具栏弹窗直接编辑已命中的默认端口规则。
