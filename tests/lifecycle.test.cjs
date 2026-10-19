@@ -144,9 +144,9 @@ test("跨域副本跟随原样式表的 CSSOM 禁用状态和媒体条件，关�
 });
 test("分组规则中插入字体声明后立即处理，移除变量规则同步重建字体依赖", async () => {
   const page = await pageFor("groups", '<style id=s>@media all { :root{--正文:SimSun} #t{font-family:var(--正文,Arial),sans-serif} }</style><p id=t>ABC中文“”</p>');
-  await page.waitForFunction(() => !document.styleSheets[0].cssRules[0].cssRules[1].style.fontFamily.includes("PingFang UI SC"));
+  await page.waitForFunction(() => !getComputedStyle(document.getElementById("t")).fontFamily.includes("PingFang UI SC"));
   await page.evaluate(() => document.getElementById("s").sheet.cssRules[0].deleteRule(0));
-  await page.waitForFunction(() => document.styleSheets[0].cssRules[0].cssRules[0].style.fontFamily.includes("PingFang UI SC"));
+  await page.waitForFunction(() => getComputedStyle(document.getElementById("t")).fontFamily.includes("PingFang UI SC"));
   await page.evaluate(() => document.getElementById("s").sheet.cssRules[0].insertRule("#t{font-family:Verdana,sans-serif}", 1));
   await page.waitForFunction(() => getComputedStyle(document.getElementById("t")).fontFamily.includes("Shared Punctuation Font") && getComputedStyle(document.getElementById("t")).fontFamily.includes("Verdana"));
 });
@@ -154,7 +154,7 @@ test("同源导入表移除后还原子表，变量依赖不残留", async () =>
   routes.set("/imported.css", ':root{--正文:SimSun}#imported{font-family:Arial,sans-serif}');
   const page = await pageFor("import-lifecycle", '<style id=s>@import url("/imported.css");</style><style>#t{font-family:var(--正文,Arial),sans-serif}</style><p id=t>ABC中文“”</p><p id=imported>ABC“”</p>');
   await page.waitForFunction(() => document.getElementById("s").sheet.cssRules[0].styleSheet.cssRules[1].style.fontFamily.includes("Shared Punctuation Font"));
-  await page.waitForFunction(() => !document.styleSheets[1].cssRules[0].style.fontFamily.includes("PingFang UI SC"));
+  await page.waitForFunction(() => !getComputedStyle(document.getElementById("t")).fontFamily.includes("PingFang UI SC"));
   await page.evaluate(() => {
     window.childSheet = document.getElementById("s").sheet.cssRules[0].styleSheet;
     document.getElementById("s").sheet.deleteRule(0);

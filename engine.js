@@ -1,6 +1,6 @@
 (() => {
   "use strict";
-  const { CHANNEL, prepend, hasFonts, cssString, normalize } = SPF;
+  const { CHANNEL, hasFonts, cssString, normalize } = SPF;
   const setProperty = CSSStyleDeclaration.prototype.setProperty;
   const removeProperty = CSSStyleDeclaration.prototype.removeProperty;
   const insertRule = CSSStyleSheet.prototype.insertRule;
@@ -20,8 +20,9 @@
   const headPrefix = "--spf-head-" + Math.random().toString(36).slice(2) + "-";
   let variableTimer = 0;
   let trackedVariables = new Set();
-  let nonSansVariables = new Set();
-  let serifVariables = new Set();
+  let propertySheet = null;
+  let propertyDefinitions = new Map();
+  const scriptProperties = new Map();
   const roots = new Map();
   const detachedRoots = new Set();
   const rootReferences = new WeakMap();
@@ -45,8 +46,85 @@
     try { setProperty.call(style, "font-family", value, priority); }
     finally { writing = false; }
   }
-  function appendAllowed(value) {
-    return !(nonSansVariables.size || serifVariables.size) || !value.includes("--") || ![...SPF.variableReferences(value)].some(name => nonSansVariables.has(name) || serifVariables.has(name));
+  const blockedFont = cssString(headPrefix + "no-body-font");
+  const blockKey = name => "\0" + name;
+  const blockName = name => headName(blockKey(name));
+  function blockedFallback(value, fallback = "") {
+    const names = [...SPF.variableReferences(value)];
+    return names.reduceRight((tail, name) => "var(" + blockName(name) + (tail ? ", " + tail : "") + ")", fallback);
+  }
+  function blockValue(value) {
+    if (SPF.hasChineseNonSans(value) || config.replaceSerif && SPF.hasSerif(value)) return blockedFont;
+    return blockedFallback(value) || "initial";
+  }
+  function fontValue(value, punctuation = true, append = true) {
+    const references = SPF.variableReferences(value);
+    const directBlock = SPF.hasChineseNonSans(value) || config.replaceSerif && SPF.hasSerif(value);
+    const conditional = references.size && !directBlock && config.cjkMode !== "off";
+    const preserve = directBlock || (conditional ? (original, replacement) => blockedFallback(value, replacement) + ", " + original : false);
+    const plain = SPF.chineseFamilies(value, config, false, preserve);
+    const needsTail = append && conditional && SPF.chineseFamilies(value, config, true, preserve) !== plain;
+    let result = punctuation ? SPF.prepend(value, config, append && !conditional, false, preserve, headName) : plain;
+    if (needsTail) {
+      const names = SPF.chineseFontFamilies(config.cjkFont, config);
+      if (SPF.fontNames(config.cjkFont)[0]?.toLowerCase() !== "sf pro text") names.unshift("SF Pro Text");
+      result += ", " + blockedFallback(value, names.map(cssString).join(", "));
+    }
+    return result;
+  }
+  function collectProperties() {
+    const result = new Map();
+    const visit = (rules, conditions = []) => {
+      for (const rule of rules) {
+        if (rule.constructor.name === "CSSPropertyRule") {
+          const entry = { syntax: rule.syntax, inherits: rule.inherits, initialValue: rule.initialValue, conditions };
+          const variants = result.get(rule.name)?.variants || [];
+          variants.push(entry);
+          result.set(rule.name, { ...entry, variants });
+        }
+        if (rule.styleSheet) { try { visit(rule.styleSheet.cssRules, conditions); } catch {} }
+        if (rule.cssRules) {
+          const condition = rule.constructor.name === "CSSMediaRule" ? "@media " + rule.conditionText
+            : rule.constructor.name === "CSSSupportsRule" ? "@supports " + rule.conditionText : null;
+          visit(rule.cssRules, condition ? [...conditions, condition] : conditions);
+        }
+      }
+    };
+    for (const sheet of [...document.styleSheets, ...document.adoptedStyleSheets]) {
+      if (ownNodes.has(sheet.ownerNode)) continue;
+      try { visit(sheet.cssRules); } catch {}
+    }
+    for (const [name, entry] of scriptProperties) {
+      const variant = { ...entry, conditions: [] };
+      result.set(name, { ...variant, variants: [variant] });
+    }
+    return result;
+  }
+  function updatePropertyAliases(headReferences, references) {
+    const output = [];
+    for (const [name, definitions] of propertyDefinitions) for (const entry of definitions.variants) {
+      const universal = entry.syntax === "*";
+      for (const [needed, alias, value, syntax] of [
+        [headReferences.has(name), headName(name), entry.initialValue == null ? null : universal ? fontValue(entry.initialValue, true, false) : entry.initialValue, entry.syntax === "*" ? "*" : entry.syntax],
+        [references.has(name), blockName(name), entry.initialValue == null ? null : blockValue(entry.initialValue), "*"]
+      ]) {
+        if (!needed) continue;
+        let css = "@property " + alias + " { syntax: " + cssString(syntax) + "; inherits: " + entry.inherits + ";"
+          + (value && value !== "initial" ? " initial-value: " + value + ";" : "") + " }";
+        for (const condition of [...entry.conditions].reverse()) css = condition + " { " + css + " }";
+        output.push(css);
+      }
+    }
+    const css = output.join("\n");
+    if (!css) { propertySheet?.remove(); propertySheet = null; return; }
+    if (!propertySheet) { propertySheet = document.createElement("style"); ownNodes.add(propertySheet); }
+    if (!propertySheet.isConnected) (document.head || document.documentElement)?.append(propertySheet);
+    // 使用原生 CSSOM 填充，沿用严格 CSP 页面的样式表处理方式。
+    if (propertySheet.dataset.signature !== css) {
+      propertySheet.dataset.signature = css;
+      while (propertySheet.sheet?.cssRules.length) propertySheet.sheet.deleteRule(0);
+      if (propertySheet.sheet) for (const rule of output) insertRule.call(propertySheet.sheet, rule, propertySheet.sheet.cssRules.length);
+    }
   }
   function originalFont(style) {
     const value = style.getPropertyValue("font-family"), saved = snapshots.get(style);
@@ -99,8 +177,7 @@
       return;
     }
     const value = owned ? saved.value : current;
-    const append = appendAllowed(value);
-    const modified = prepend(value, config, append, false, !append, headName);
+    const modified = fontValue(value);
     if (modified === current || owned && modified === saved.proposed) { if (modified === value) snapshots.delete(style); return; }
     const priority = owned ? saved.priority : style.getPropertyPriority("font-family");
     if (modified === value) snapshots.delete(style);
@@ -140,6 +217,7 @@
   function updateVariables() {
     variableTimer = 0;
     if (!active || !SPF.hasFonts(config)) return;
+    propertyDefinitions = collectProperties();
     const references = new Set();
     const headReferences = new Set();
     const punctuationEnabled = Boolean(SPF.unicodeRange(config));
@@ -178,32 +256,9 @@
       }
     }
     for (const name of headReferences) headName(name);
-    // 字体变量有宋体、楷体等取值时，沿依赖图传播“跳过追加”。
-    const dependents = new Map();
-    const nonSans = new Set();
-    const serif = new Set();
-    for (const name of references) for (const next of graph.get(name) || []) {
-      if (!dependents.has(next)) dependents.set(next, new Set());
-      dependents.get(next).add(name);
-    }
-    for (const [style, source] of variableSources) for (const name of source.variables) {
-      const current = style.getPropertyValue(name), saved = variableSnapshots.get(style)?.get(name);
-      const original = saved?.modified === current ? saved.value : current;
-      if (references.has(name) && !overriddenAtRoot(style, name) && SPF.hasChineseNonSans(original)) nonSans.add(name);
-      if (config.replaceSerif && references.has(name) && !overriddenAtRoot(style, name) && SPF.hasSerif(original)) serif.add(name);
-    }
-    const nonSansQueue = [...nonSans];
-    for (let i = 0; i < nonSansQueue.length; i++) for (const name of dependents.get(nonSansQueue[i]) || []) {
-      if (!nonSans.has(name)) { nonSans.add(name); nonSansQueue.push(name); }
-    }
-    nonSansVariables = nonSans;
-    const serifQueue = [...serif];
-    for (let i = 0; i < serifQueue.length; i++) for (const name of dependents.get(serifQueue[i]) || []) {
-      if (!serif.has(name)) { serif.add(name); serifQueue.push(name); }
-    }
-    serifVariables = serif;
+    updatePropertyAliases(headReferences, config.cjkMode !== "off" ? references : new Set());
     for (const [style, source] of variableSources) {
-      const neededMirrors = new Set(source.variables.filter(name => headReferences.has(name)));
+      const neededMirrors = new Set(source.variables.flatMap(name => [...(headReferences.has(name) ? [name] : []), ...(config.cjkMode !== "off" && references.has(name) ? [blockKey(name)] : [])]));
       releaseMirrors(style, neededMirrors);
       for (const [name, saved] of variableSnapshots.get(style) || []) if (!references.has(name)) {
         if (style.getPropertyValue(name) === saved.modified) {
@@ -218,7 +273,8 @@
         const value = style.getPropertyValue(name);
         const saved = variableSnapshots.get(style)?.get(name);
         if (saved?.modified === value) continue;
-        const modified = SPF.chineseFamilies(value, config, false);
+        const definition = propertyDefinitions.get(name);
+        const modified = definition && definition.syntax !== "*" ? value : fontValue(value, false, false);
         if (modified === value) { variableSnapshots.get(style)?.delete(name); continue; }
         const priority = style.getPropertyPriority(name);
         if (!variableSnapshots.has(style)) variableSnapshots.set(style, new Map());
@@ -227,20 +283,22 @@
         try { setProperty.call(style, name, modified, priority); }
         finally { writing = false; }
       }
-      // 同位置的专用变量保留原生级联、继承与状态；后备引用沿用原变量。
-      for (const name of neededMirrors) {
-        const modified = SPF.prepend(originalVariable(style, name), config, false, false, false, headName);
-        const target = headName(name), priority = style.getPropertyPriority(name);
+      // 辅助声明与原变量处于相同位置，浏览器负责作用域、继承、媒体和交互状态。
+      for (const key of neededMirrors) {
+        const blocked = key.startsWith("\0"), name = blocked ? key.slice(1) : key;
+        const original = originalVariable(style, name), definition = propertyDefinitions.get(name);
+        const modified = blocked ? blockValue(original) : definition && definition.syntax !== "*" ? original : fontValue(original, true, false);
+        const target = headName(key), priority = style.getPropertyPriority(name);
         const current = style.getPropertyValue(target);
         if (!mirrorSnapshots.has(style)) mirrorSnapshots.set(style, new Map());
-        const saved = mirrorSnapshots.get(style).get(name) || { name: target, previous: current, previousPriority: style.getPropertyPriority(target) };
+        const saved = mirrorSnapshots.get(style).get(key) || { name: target, previous: current, previousPriority: style.getPropertyPriority(target) };
         if (current !== modified || style.getPropertyPriority(target) !== priority) {
           writing = true;
           try { setProperty.call(style, target, modified, priority); }
           finally { writing = false; }
         }
         saved.modified = style.getPropertyValue(target);
-        mirrorSnapshots.get(style).set(name, saved);
+        mirrorSnapshots.get(style).set(key, saved);
       }
       source.signature = style.cssText;
       source.values = new Map(source.variables.map(name => [name, style.getPropertyValue(name)]));
@@ -622,8 +680,8 @@
     }
     variableSources.clear(); variableSnapshots.clear();
     trackedVariables = new Set();
-    nonSansVariables = new Set();
-    serifVariables = new Set();
+    propertySheet?.remove(); propertySheet = null;
+    propertyDefinitions.clear();
     for (const node of [...clones.keys()]) restoreClone(node);
     for (const font of registeredFonts) document.fonts.delete(font);
     registeredFonts.length = 0;
@@ -647,6 +705,7 @@
       resumeConnectedRoots();
       for (const [root, state] of roots) if (!state.started) startRoot(root, state);
       readControlFamilies();
+      updateVariables();
     }
   }
 
@@ -719,6 +778,44 @@
       };
       if (name === "replace") result.then(changed, () => {});
       else changed();
+      return result;
+    };
+  }
+  if (CSS.registerProperty) {
+    const registerProperty = CSS.registerProperty;
+    CSS.registerProperty = function (definition) {
+      if (!arguments.length) return registerProperty.apply(this, arguments);
+      const values = {};
+      const capture = (value, key) => {
+        if (value === undefined || typeof value === "symbol") return value;
+        if (value === null || !["object", "function"].includes(typeof value)) { values[key] = String(value); return value; }
+        // 让原生 API 触发唯一一次字符串转换，并保留原对象的方法接收者及异常。
+        return { [Symbol.toPrimitive](hint) {
+          let primitive = value;
+          const exotic = value[Symbol.toPrimitive];
+          if (exotic != null) primitive = Reflect.apply(exotic, value, [hint]);
+          else for (const name of ["toString", "valueOf"]) {
+            const method = value[name];
+            if (typeof method !== "function") continue;
+            primitive = Reflect.apply(method, value, []);
+            if (primitive === null || !["object", "function"].includes(typeof primitive)) break;
+          }
+          if (primitive === null || !["object", "function", "symbol"].includes(typeof primitive)) values[key] = String(primitive);
+          return primitive;
+        } };
+      };
+      const proxy = definition && (typeof definition === "object" || typeof definition === "function")
+        ? new Proxy(definition, { get(target, key) {
+          const value = Reflect.get(target, key, target);
+          if (key === "inherits") { values[key] = Boolean(value); return value; }
+          return ["name", "syntax", "initialValue"].includes(key) ? capture(value, key) : value;
+        } }) : definition;
+      const result = registerProperty.call(this, proxy);
+      if (typeof values.name === "string" && typeof values.syntax === "string"
+          && (values.initialValue === undefined || typeof values.initialValue === "string")) {
+        scriptProperties.set(values.name, { syntax: values.syntax, inherits: Boolean(values.inherits), initialValue: values.initialValue ?? null });
+        if (active && !variableTimer) variableTimer = setTimeout(updateVariables, 0);
+      }
       return result;
     };
   }

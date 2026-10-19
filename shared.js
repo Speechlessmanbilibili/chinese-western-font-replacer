@@ -111,10 +111,9 @@
       return { host: url.hostname.replace(/\.$/, ""), port: port ? String(Number(port[1])) : "" };
     } catch { return null; }
   }
-  function effective(value, location) {
-    const settings = normalize(value);
+  function matchRule(settings, location) {
     let url;
-    try { url = new URL(location); } catch { return settings; }
+    try { url = new URL(location); } catch { return null; }
     const host = url.hostname.replace(/\.$/, "");
     const port = url.port || (url.protocol === "https:" ? "443" : "80");
     let best = null;
@@ -125,6 +124,10 @@
       const rank = domain.host.length * 2 + Number(Boolean(domain.port));
       if (rank > score) { best = rule; score = rank; }
     }
+    return best;
+  }
+  function effective(value, location) {
+    const settings = normalize(value), best = matchRule(settings, location);
     return { ...settings, enabled: best?.action === "off" ? false : best?.action === "on" ? true : settings.enabled, font: best?.font || settings.font, cjkMode: best && best.cjkMode !== "inherit" ? best.cjkMode : settings.cjkMode,
       replaceSong: best?.cjkMode === "off" ? false : settings.replaceSong,
       replaceKai: best?.cjkMode === "off" ? false : settings.replaceKai,
@@ -208,6 +211,7 @@
     for (const part of familyList(value, true)) {
       let name = part.trim();
       if ((name[0] === '"' || name[0] === "'") && name.at(-1) === name[0] && name.length > 1) name = decodeCSS(name.slice(1, -1));
+      else if (!/['"]/.test(name.replace(/\\[\s\S]/g, ""))) name = decodeCSS(name);
       const key = name.toLowerCase();
       if (!name || seen.has(key)) continue;
       seen.add(key); result.push(name.slice(0, 300));
@@ -366,10 +370,11 @@
           }
         }
       }
-      if ((nonSans || preserveSystem) && systemNames.has(name)) return part;
+      if ((nonSans || preserveSystem === true) && systemNames.has(name)) return part;
       if (settings.cjkMode !== "off" && (name === selected || targets.has(name))) {
         found = true;
-        return i > 0 && familyName(parts[i - 1]) === "sf pro text" ? font : group;
+        const replacement = i > 0 && familyName(parts[i - 1]) === "sf pro text" ? font : group;
+        return typeof preserveSystem === "function" && systemNames.has(name) ? preserveSystem(part, replacement) : replacement;
       }
       return part;
     }).join(",");
@@ -416,6 +421,32 @@
     }
     return result;
   }
+  // 按字段合并草稿，保留其他窗口的新设置和同域名规则的独立编辑。
+  function mergeDraft(base, draft, latest) {
+    const equal = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+    const merge = (before, edited, current) => Object.fromEntries([...new Set([...Object.keys(current), ...Object.keys(edited)])]
+      .map(key => [key, equal(edited[key], before[key]) ? current[key] : edited[key]]));
+    const result = merge(base, draft, latest);
+    if (equal(base.siteRules, draft.siteRules)) return result;
+    const index = rules => {
+      const counts = new Map();
+      return new Map((rules || []).map(rule => {
+        const domain = parseDomain(rule.domain);
+        const name = domain ? domain.host + ":" + (domain.port || "") : rule.domain;
+        const count = counts.get(name) || 0; counts.set(name, count + 1);
+        return [name + "\0" + count, rule];
+      }));
+    };
+    const before = index(base.siteRules), edited = index(draft.siteRules), current = index(latest.siteRules);
+    const order = equal([...before.keys()], [...edited.keys()]) ? [...current.keys(), ...edited.keys()] : [...edited.keys(), ...current.keys()];
+    result.siteRules = [...new Set(order)].flatMap(key => {
+      if (before.has(key) && !edited.has(key)) return [];
+      if (!edited.has(key)) return current.has(key) ? [current.get(key)] : [];
+      if (!current.has(key)) return before.has(key) && equal(before.get(key), edited.get(key)) ? [] : [edited.get(key)];
+      return [merge(before.get(key) || {}, edited.get(key), current.get(key))];
+    });
+    return result;
+  }
   function prepend(value, options, append = true, serifDependent = false, preserveSystem = !append, mirror = null) {
     const family = value.trim();
     if (!family || /^(?:inherit|initial|unset|revert|revert-layer)$/i.test(family) || family.startsWith(prefix)) return value;
@@ -438,5 +469,5 @@
     parts[0] = "var(" + (name || parts[0].slice(parts[0].indexOf("(") + 1).split(",")[0].trim()) + fallback + ")";
     return parts.join(",");
   }
-  globalThis.SPF = Object.freeze({ FAMILY, CHINESE_FONTS, SYSTEM_FONTS, DEFAULT_TARGETS, PUNCTUATION_TARGETS, CHANNEL, GROUPS, normalize, normalizeFontAliases, fontAlias, parseDomain, effective, characters, unicodeRange, cssString, localFontSources, fontCSS, prepend, prefix, familyList, familyName, fontNames, punctuationFaces, serifRanges, serifFaces, fontFaces, hasSans, hasSerif, leadingVariable, firstVariableReferences, hasChineseNonSans, chineseFontFamilies, chineseFamilies, variableReferences, hasBodyFonts, hasFonts });
+  globalThis.SPF = Object.freeze({ mergeDraft, matchRule, FAMILY, CHINESE_FONTS, SYSTEM_FONTS, DEFAULT_TARGETS, PUNCTUATION_TARGETS, CHANNEL, GROUPS, normalize, normalizeFontAliases, fontAlias, parseDomain, effective, characters, unicodeRange, cssString, localFontSources, fontCSS, prepend, prefix, familyList, familyName, fontNames, punctuationFaces, serifRanges, serifFaces, fontFaces, hasSans, hasSerif, leadingVariable, firstVariableReferences, hasChineseNonSans, chineseFontFamilies, chineseFamilies, variableReferences, hasBodyFonts, hasFonts });
 })();

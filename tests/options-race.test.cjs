@@ -15,8 +15,10 @@ async function fixture() {
   await page.evaluate(() => {
     window.saves = [];
     window.chrome = { storage: { local: {
-      get: () => new Promise(resolve => { window.finishInitial = resolve; }),
-      set: value => new Promise((resolve, reject) => { saves.push({ value, resolve, reject }); })
+      get: () => window.stored ? Promise.resolve(structuredClone(stored)) : new Promise(resolve => {
+        window.finishInitial = value => { window.stored = structuredClone(value); resolve(value); };
+      }),
+      set: value => new Promise((resolve, reject) => { saves.push({ value, resolve: () => { Object.assign(stored, structuredClone(value)); resolve(); }, reject }); })
     } } };
   });
   for (const file of ["shared.js", "options.js"]) await page.addScriptTag({ path: path.join(root, file) });
@@ -185,5 +187,20 @@ test("serif 字体板块、共用字符选项、预览、保存及关闭校验�
     await page.locator("#replace-serif").check();
     assert.equal(await page.locator("#replace-song").isChecked(), false);
     assert.equal(await page.locator("#song-font").isDisabled(), true);
+  } finally { await page.close(); }
+});
+
+test("保存字体草稿时保留其他窗口的新开关和站点规则", async () => {
+  const page = await fixture();
+  try {
+    await initialize(page);
+    await page.locator("#font").fill("Arial");
+    await page.evaluate(() => { stored.settings.enabled = false; stored.settings.siteRules = [{ domain: "example.com", action: "off", font: "", cjkMode: "inherit" }]; });
+    await page.getByRole("button", { name: "保存设置" }).click();
+    assert.equal(await page.evaluate(() => saves[0].value.settings.enabled), false);
+    await page.evaluate(() => saves[0].resolve());
+    await page.waitForFunction(() => document.getElementById("status").textContent === "已保存");
+    assert.equal(await page.locator("#enabled").isChecked(), false);
+    assert.equal(await page.locator(".domain").inputValue(), "example.com");
   } finally { await page.close(); }
 });

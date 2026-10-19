@@ -23,21 +23,7 @@
     settings = value;
   }
 
-  function matchRule(value, href) {
-    let parsed;
-    try { parsed = new URL(href); } catch { return null; }
-    const host = parsed.hostname.replace(/\.$/, "");
-    const port = parsed.port || (parsed.protocol === "https:" ? "443" : "80");
-    let best = null;
-    let score = -1;
-    for (const rule of value.siteRules) {
-      const domain = SPF.parseDomain(rule.domain);
-      if (!domain || !(host === domain.host || host.endsWith("." + domain.host)) || (domain.port && domain.port !== port)) continue;
-      const rank = domain.host.length * 2 + Number(Boolean(domain.port));
-      if (rank > score) { best = rule; score = rank; }
-    }
-    return best;
-  }
+  const matchRule = (value, href) => SPF.matchRule(value, href);
 
   function currentDomain(matched) {
     if (!url) return null;
@@ -45,7 +31,7 @@
     if (!current) return null;
     const matchedDomain = matched ? SPF.parseDomain(matched.domain) : null;
     // 当前主机已有显式端口规则时继续编辑该条，避免被父域规则覆盖。
-    if (matchedDomain && matchedDomain.host === current.host && matchedDomain.port === current.port) return matched.domain;
+    if (matchedDomain && matchedDomain.host === current.host && matchedDomain.port === (current.port || (url.protocol === "https:" ? "443" : "80"))) return matched.domain;
     return current.port ? current.host + ":" + current.port : current.host;
   }
 

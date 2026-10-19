@@ -168,6 +168,18 @@
       hint.classList.add("error");
     } finally { button.disabled = false; }
   });
+  function fill(value) {
+    $("punctuation-targets").value = value.punctuationTargets.join("\n");
+    $("enabled").checked = value.enabled; $("font").value = value.font; $("extra").value = value.extra;
+    document.querySelector(`input[name="cjk-mode"][value="${value.cjkMode}"]`).checked = true; $("cjk-font").value = value.cjkFont; $("cjk-targets").value = value.cjkTargets.join("\n");
+    $("replace-song").checked = value.replaceSong; $("song-font").value = value.songFont;
+    $("replace-kai").checked = value.replaceKai; $("kai-font").value = value.kaiFont;
+    $("replace-serif").checked = value.replaceSerif; $("serif-chinese").value = value.serifChinese; $("serif-western").value = value.serifWestern;
+    document.querySelector(`input[name="serif-shared"][value="${value.serifShared}"]`).checked = true;
+    for (const input of document.querySelectorAll("[data-group]")) input.checked = value.groups.includes(input.value);
+    const rules = [...$("rules").children].map(x => ({ domain: x.querySelector(".domain").value, action: x.querySelector("[data-action]:checked").value, font: x.querySelector(".site-font").value, cjkMode: x.querySelector("[data-cjk]:checked").value }));
+    if (JSON.stringify(rules) !== JSON.stringify(value.siteRules)) { $("rules").replaceChildren(); for (const rule of value.siteRules) addRule(rule); }
+  }
   $("settings").addEventListener("submit", async event => {
     event.preventDefault();
     if (!loaded || saving) return;
@@ -184,7 +196,15 @@
     }
     const settings = read();
     saving = true; saveButton.disabled = true; form.setAttribute("aria-busy", "true"); status("正在保存……");
-    try { await chrome.storage.local.set({ settings }); saved = JSON.stringify(settings); saving = false; changed(); }
+    try {
+      const latest = SPF.normalize((await chrome.storage.local.get("settings")).settings);
+      const merged = SPF.mergeDraft(JSON.parse(saved), settings, latest);
+      await chrome.storage.local.set({ settings: merged });
+      fontAliases = { ...fontAliases, ...merged.fontAliases };
+      const current = read(), rebased = SPF.mergeDraft(settings, current, merged);
+      if (JSON.stringify(current) !== JSON.stringify(rebased)) fill(rebased);
+      saved = JSON.stringify(merged); saving = false; changed(); preview();
+    }
     catch (error) { saving = false; status("保存失败：" + error.message, true); }
     finally { saveButton.disabled = false; form.setAttribute("aria-busy", "false"); }
   });
@@ -195,15 +215,7 @@
     fontIndexCache = fontNameIndex?.aliases && typeof fontNameIndex.signature === "string" ? fontNameIndex : null;
     fontAliases = { ...value.fontAliases, ...SPF.normalizeFontAliases(fontIndexCache?.aliases, 20000) };
     if (fontIndexCache) $("font-index-status").textContent = "已载入本机字体名称缓存。安装或更新字体后可重新识别。";
-    $("punctuation-targets").value = value.punctuationTargets.join("\n");
-    $("enabled").checked = value.enabled; $("font").value = value.font; $("extra").value = value.extra;
-    document.querySelector(`input[name="cjk-mode"][value="${value.cjkMode}"]`).checked = true; $("cjk-font").value = value.cjkFont; $("cjk-targets").value = value.cjkTargets.join("\n");
-    $("replace-song").checked = value.replaceSong; $("song-font").value = value.songFont;
-    $("replace-kai").checked = value.replaceKai; $("kai-font").value = value.kaiFont;
-    $("replace-serif").checked = value.replaceSerif; $("serif-chinese").value = value.serifChinese; $("serif-western").value = value.serifWestern;
-    document.querySelector(`input[name="serif-shared"][value="${value.serifShared}"]`).checked = true;
-    for (const input of document.querySelectorAll("[data-group]")) input.checked = value.groups.includes(input.value);
-    for (const rule of value.siteRules) addRule(rule);
+    fill(value);
     saved = JSON.stringify(read()); loaded = true; form.inert = false; saveButton.disabled = false; form.setAttribute("aria-busy", "false"); changed(); preview();
   }).catch(error => { form.inert = false; form.setAttribute("aria-busy", "false"); status("读取设置失败：" + error.message, true); });
   // 共用套件负责目录高亮与详情动画；测试环境未加载套件时保持原行为。

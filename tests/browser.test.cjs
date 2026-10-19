@@ -235,12 +235,12 @@ test("系统字体与 Apple 文本系列使用 SF Pro Text 和苹方 UI，变量
 test("宋体、楷体及仿宋跳过追加，CSSOM 与多层字体变量切换同步更新", async () => {
   const page = await pageFor("non-sans", '<style>:root{--serif:SimSun;--chain:var(--serif);--loop-a:var(--loop-b);--loop-b:var(--loop-a,SimSun)}#a{font-family:Arial,SimSun,serif}#b{font-family:KaiTi,serif}#v{font-family:var(--chain),serif}#loop{font-family:var(--loop-a),serif}#mixed{font-family:Arial,"Microsoft YaHei",SimSun}</style><p id=a>中文“”</p><p id=b>中文“”</p><p id=v>中文“”</p><p id=loop>中文</p><p id=mixed>中文</p><p id=inline style="font-family:FangSong,serif!important">中文“”</p>');
   await configured(page);
-  await page.waitForFunction(() => !document.styleSheets[0].cssRules[3].style.fontFamily.includes("PingFang UI SC"));
+  await page.waitForFunction(() => !getComputedStyle(document.getElementById("v")).fontFamily.includes("PingFang UI SC"));
   const names = await page.evaluate(() => Object.fromEntries([...document.styleSheets[0].cssRules].filter(x => x.selectorText?.startsWith("#")).map(x => [x.selectorText, x.style.fontFamily])));
   assert.equal(names["#a"], '"Shared Punctuation Font", Arial, SimSun, serif');
   assert.equal(names["#b"], 'KaiTi, serif');
-  assert.match(names["#v"], /^var\(--spf-head-[\w-]+\),serif$/);
-  assert.match(names["#loop"], /^var\(--spf-head-[\w-]+\),serif$/);
+  assert.match(names["#v"], /^var\(--spf-head-/);
+  assert.match(names["#loop"], /^var\(--spf-head-/);
   assert.equal(names["#mixed"], '"Shared Punctuation Font", Arial, "SF Pro Text", "PingFang UI SC", "PingFang SC", SimSun');
   assert.equal(await page.locator("#inline").evaluate(x => x.style.fontFamily), 'FangSong, serif');
   assert.equal(await page.locator("#inline").evaluate(x => x.style.getPropertyPriority("font-family")), "important");
@@ -251,7 +251,7 @@ test("宋体、楷体及仿宋跳过追加，CSSOM 与多层字体变量切换�
   assert.equal(await page.locator("#inline").evaluate(x => x.style.fontFamily), 'KaiTi, serif');
   for (const [font, appended] of [["Arial", true], ["KaiTi", false], ['"Microsoft YaHei"', true], ["SimSun", false]]) {
     await page.evaluate(value => document.documentElement.style.setProperty("--serif", value), font);
-    await page.waitForFunction(expected => document.styleSheets[0].cssRules[3].style.fontFamily.includes("PingFang UI SC") === expected, appended);
+    await page.waitForFunction(expected => getComputedStyle(document.getElementById("v")).fontFamily.includes("PingFang UI SC") === expected, appended);
   }
   assert.deepEqual(await fonts(page, "#v"), [{ family: "SimSun", glyphs: 4 }]);
 });
@@ -260,10 +260,10 @@ test("仅开启中文正文功能时，变量追加与撤回可反复切换", as
   const saved = await worker.evaluate(async () => { const { settings } = await chrome.storage.local.get("settings"); await chrome.storage.local.set({ settings: { ...settings, groups: [] } }); return settings; });
   try {
     const page = await pageFor("non-sans-only", '<style>:root{--body:SimSun}#t{font-family:var(--body),serif}</style><p id=t>中文</p>');
-    await page.waitForFunction(() => document.styleSheets[0].cssRules[1].style.fontFamily === "var(--body),serif");
+    await page.waitForFunction(() => getComputedStyle(document.getElementById("t")).fontFamily.startsWith("SimSun, serif"));
     for (const [font, appended] of [["Arial", true], ["SimSun", false], ["Arial", true], ["FangSong", false]]) {
       await page.evaluate(value => document.documentElement.style.setProperty("--body", value), font);
-      await page.waitForFunction(expected => document.styleSheets[0].cssRules[1].style.fontFamily.includes("PingFang UI SC") === expected, appended);
+      await page.waitForFunction(expected => getComputedStyle(document.getElementById("t")).fontFamily.includes("PingFang UI SC") === expected, appended);
     }
     assert.equal(await page.evaluate(() => [...document.fonts].length), 0);
   } finally { await worker.evaluate(settings => chrome.storage.local.set({ settings }), saved); }
@@ -395,7 +395,7 @@ test("宋体替换仅处理宋体与 SimSun，其他宋体及动态变量保留�
       assert.deepEqual(await page.evaluate(() => [...document.querySelectorAll('[id^="keep-"]')].map(node => SPF.familyList(getComputedStyle(node).fontFamily).map(SPF.familyName))), preserved.map(family => [family.toLowerCase(), "sans-serif"]));
     }
     await page.evaluate(() => document.documentElement.style.setProperty("--font", '"Songti SC"'));
-    await page.waitForFunction(() => getComputedStyle(document.getElementById("variable")).fontFamily === '"Songti SC", serif');
+    await page.waitForFunction(() => getComputedStyle(document.getElementById("variable")).fontFamily.startsWith('"Songti SC", serif') && !getComputedStyle(document.getElementById("variable")).fontFamily.includes("PingFang UI SC"));
     await page.evaluate(() => document.documentElement.style.setProperty("--font", '"宋体"'));
     await page.waitForFunction(() => getComputedStyle(document.getElementById("variable")).fontFamily.includes("PingFang UI SC"));
     assert.deepEqual(await fonts(page, "#variable"), chineseReference);

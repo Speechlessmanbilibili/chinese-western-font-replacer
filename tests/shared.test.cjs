@@ -127,6 +127,7 @@ test("变量引用支持中文、CSS 转义、嵌套回退、注释及大小写�
 test("字体列表保留引号内逗号，按输入顺序去重并生成独立本机字体引用", () => {
   assert.deepEqual([...S.fontNames('Arial， "A,B", Arial, "Times New Roman"\nCourier New')], ["Arial", "A,B", "Times New Roman", "Courier New"]);
   assert.deepEqual([...S.fontNames(String.raw`"A\22 B", "A\2c B"`)], ['A"B', "A,B"]);
+  assert.deepEqual([...S.fontNames(String.raw`Courier\20 New, A\,B`)], ["Courier New", "A,B"]);
   assert.deepEqual([...S.chineseFontFamilies('PingFang UI SC, Custom Font, PingFang SC')], ["PingFang UI SC", "Custom Font", "PingFang SC"]);
   assert.equal(S.chineseFamilies('"Microsoft YaHei", Arial', { cjkFont: '"A,B", Custom Font' }), '"SF Pro Text", "A,B", "Custom Font", Arial');
   const css = S.fontCSS({ font: 'Missing Font, "A,B", Courier New' });
