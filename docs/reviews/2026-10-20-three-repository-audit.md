@@ -318,3 +318,15 @@ node --test --test-reporter=spec tests/shared.test.cjs tests/bridge.test.cjs tes
 | [v1.3.3](https://github.com/Speechlessmanbilibili/native-auto-space/releases/tag/v1.3.3) | `native-auto-space-v1.3.3.zip` | 45799 | `13419a1b5dfb0823d2d2fec7ba221519155ad38ad4691c55cad24163acd9de73` |
 | [v2.3.3](https://github.com/Speechlessmanbilibili/system-font-substituter/releases/tag/v2.3.3) | `system-font-substituter-v2.3.3.zip` | 97141 | `6f65418dcdd791715795172272653018cf2a318e093e9dd9c20a8dc2eba4533b` |
 | [v1.5.0](https://github.com/Speechlessmanbilibili/chinese-western-font-replacer/releases/tag/v1.5.0) | `chinese-western-font-replacer-v1.5.0.zip` | 87944 | `ed9bbbe3526ca4cbd01d5a62eb3738f328b026d681e6415ca33103d60f5b1334` |
+
+### 第二轮发布核验
+
+三个修复提交和版本标签均已推送，三个正式 Release 均设为各仓库最新版。远端版本标签解析到对应发布提交。发布时间按北京时间记录。
+
+| 仓库 | 正式版本 | 发布提交 | 发布时间 |
+|---|---|---|---|
+| native-auto-space | [v1.3.3](https://github.com/Speechlessmanbilibili/native-auto-space/releases/tag/v1.3.3) | `d0dd50c08a058550afd0a4e3fdb1df72898fd9fb` | 2026-10-20 22:57:56 |
+| system-font-substituter | [v2.3.3](https://github.com/Speechlessmanbilibili/system-font-substituter/releases/tag/v2.3.3) | `ac70243aa8a18c06da793ea3d8375d97db468525` | 2026-10-20 22:58:01 |
+| chinese-western-font-replacer | [v1.5.0](https://github.com/Speechlessmanbilibili/chinese-western-font-replacer/releases/tag/v1.5.0) | `7fa4da2aa20b58d054ec28cf3a25910c982e4d98` | 2026-10-20 22:58:07 |
+
+已从 GitHub 重新下载三个 ZIP 及独立 `apple-ui-mix.css`，四个附件与本地构建逐字节一致，文件大小和 SHA-256 同时与 GitHub 返回的摘要一致。CSS 为 2472 字节，SHA-256 为 `8f21da2021294b92716040bd882cfc13271692cb9041432974f03e57b697bae4`。本段核验结果单独提交到中西文字体替换仓库。
