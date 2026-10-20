@@ -10,8 +10,8 @@ $taskManifest = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'manifest.json
 $taskVersion = $taskManifest.version
 if ($taskVersion -notmatch '^\d+\.\d+\.\d+(?:\.\d+)?$') { throw 'manifest 版本无效。' }
 # 将同一份共有代码编入主世界入口，避免 Chromium 按文件名去重内容脚本。
-$taskRuntime = [System.IO.File]::ReadAllText((Join-Path $PSScriptRoot 'shared.js')) + "`n" + [System.IO.File]::ReadAllText((Join-Path $PSScriptRoot 'engine.js'))
-[System.IO.File]::WriteAllText((Join-Path $PSScriptRoot 'main-runtime.js'), $taskRuntime, (New-Object System.Text.UTF8Encoding($false)))
+& node (Join-Path $PSScriptRoot 'scripts/build-runtime.cjs')
+if ($LASTEXITCODE -ne 0) { throw '生成主世界入口失败。' }
 $taskNames = @('manifest.json', 'background.js', 'shared.js', 'main-runtime.js', 'bridge.js', 'font-names.js', 'options.html', 'options.css', 'options.js', 'popup.html', 'popup.css', 'popup.js', 'kit', 'icons/source.svg', 'icons/icon-16.png', 'icons/icon-32.png', 'icons/icon-48.png', 'icons/icon-128.png', 'README.md', 'CHANGELOG.md', 'PRIVACY.md', 'LICENSE')
 $taskOutput = [System.IO.Path]::GetFullPath($OutputDirectory)
 New-Item -ItemType Directory -Path $taskOutput -Force | Out-Null

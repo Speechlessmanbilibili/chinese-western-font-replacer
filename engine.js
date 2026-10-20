@@ -4,6 +4,7 @@
   const setProperty = CSSStyleDeclaration.prototype.setProperty;
   const removeProperty = CSSStyleDeclaration.prototype.removeProperty;
   const insertRule = CSSStyleSheet.prototype.insertRule;
+  const replaceSheet = CSSStyleSheet.prototype.replaceSync;
   const disabledDescriptor = Object.getOwnPropertyDescriptor(StyleSheet.prototype, "disabled");
   const mediaDescriptor = Object.getOwnPropertyDescriptor(MediaList.prototype, "mediaText");
   const opaqueSheets = new WeakMap();
@@ -64,7 +65,7 @@
     const preserve = directBlock || (conditional ? (original, replacement) => blockedFallback(value, replacement) + ", " + original : false);
     const plain = SPF.chineseFamilies(value, config, false, preserve);
     const needsTail = append && conditional && SPF.chineseFamilies(value, config, true, preserve) !== plain;
-    let result = punctuation ? SPF.prepend(value, config, append && !conditional, false, preserve, headName) : plain;
+    let result = punctuation ? SPF.prepend(value, config, append && !conditional, preserve, headName) : plain;
     if (needsTail) {
       const names = SPF.chineseFontFamilies(config.cjkFont, config);
       if (SPF.fontNames(config.cjkFont)[0]?.toLowerCase() !== "sf pro text") names.unshift("SF Pro Text");
@@ -379,6 +380,10 @@
     host.remove();
     window.postMessage({ channel: CHANNEL, direction: "to-bridge", kind: "control-fonts", families: controlFamilies }, "*");
   }
+  function readableRules(sheet) {
+    try { return sheet.cssRules; }
+    catch (error) { if (error.name === "SecurityError") return null; throw error; }
+  }
   function patchRules(rules) {
     for (const rule of [...rules]) {
       if (rule.constructor.name === "CSSPropertyRule" && !variableTimer) variableTimer = setTimeout(updateVariables, 0);
@@ -386,8 +391,8 @@
       if (rule.type !== CSSRule.FONT_FACE_RULE && rule.style) patchStyle(rule.style, rule);
       if (rule.type === CSSRule.IMPORT_RULE) {
         if (!rule.styleSheet) continue;
-        try { patchRules(rule.styleSheet.cssRules); }
-        catch { return false; }
+        const imported = readableRules(rule.styleSheet);
+        if (!imported || patchRules(imported) === false) return false;
       } else if (rule.cssRules && patchRules(rule.cssRules) === false) return false;
     }
     return true;
@@ -544,7 +549,7 @@
   }
   function fillSheet(style, css) {
     const parser = new CSSStyleSheet();
-    parser.replaceSync(css);
+    replaceSheet.call(parser, css);
     for (const rule of parser.cssRules) insertRule.call(style.sheet, rule.cssText, style.sheet.cssRules.length);
   }
   async function replaceOpaque(node) {
@@ -596,9 +601,8 @@
       if (previous && previous !== sheet) releaseSheet(previous);
       resourceSheets.set(sheet.ownerNode, sheet);
     }
-    try {
-      if (patchRules(sheet.cssRules) === false) replaceOpaque(sheet.ownerNode);
-    } catch { replaceOpaque(sheet.ownerNode); }
+    const rules = readableRules(sheet);
+    if (!rules || patchRules(rules) === false) replaceOpaque(sheet.ownerNode);
   }
   function inspect(node) {
     if (!active || !node || ownNodes.has(node)) return;
@@ -696,7 +700,7 @@
     const signature = JSON.stringify([next.enabled, next.font, next.groups, next.extra, next.punctuationTargets, next.fontAliases, next.cjkMode, next.cjkFont, next.cjkTargets, next.replaceSong, next.songFont, next.replaceKai, next.kaiFont, next.replaceSerif, next.serifChinese, next.serifWestern, next.serifShared]);
     if (config?.signature === signature) return;
     stop();
-    config = { ...next, signature };
+    config = Object.assign(next, { signature });
     active = next.enabled && hasFonts(next);
     if (active) {
       // FontFace 与 @font-face 使用相同的字符范围机制，注册后也覆盖 Shadow DOM。
@@ -844,8 +848,7 @@
   function receiveMessage(event) {
     const message = event.data;
     if (event.source !== window || message?.channel !== CHANNEL || message.direction !== "to-engine") return;
-    if (message.kind === "config") configure(message.settings);
-    else if (message.kind === "css") {
+    if (message.kind === "css") {
       const task = pending.get(message.id);
       if (!task) return;
       pending.delete(message.id); clearTimeout(task.timeout);
@@ -854,7 +857,9 @@
   }
   function receiveConfig(event) {
     if (typeof event.detail !== "string") return;
-    try { configure(JSON.parse(event.detail)); } catch {}
+    let settings;
+    try { settings = JSON.parse(event.detail); } catch { return; }
+    configure(settings);
   }
   function installEvents() {
     document.addEventListener("load", stylesheetLoaded, true);

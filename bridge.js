@@ -31,12 +31,12 @@
     (enabled ? fontWork : Promise.resolve(null)).then(font => {
       if (current !== rootRevision) return;
       const css = enabled ? `:root { font-family: ${SPF.prepend(SPF.cssString(font?.font || "Times New Roman"), next)}; }` + Object.entries(controlFamilies || {}).map(([tag, family]) => `${tag} { font-family: ${SPF.prepend(family, next)}; }`).join("\n") : "";
-      rootWork = rootWork.catch(() => {}).then(async () => {
+      rootWork = rootWork.then(async () => {
         if (current !== rootRevision || css === rootCSS) return;
         const result = await chrome.runtime.sendMessage({ kind: "root-style", css, previous: rootCSS });
         if (result?.error) throw new Error(result.error);
         rootCSS = css;
-      }).catch(() => {});
+      }).catch(error => console.warn("根字体样式更新失败：", error));
     });
   }
   function setConfig(value) {
@@ -48,7 +48,7 @@
     const current = revision;
     loading = chrome.storage.local.get("settings").then(stored => {
       if (current === revision) setConfig(stored.settings);
-    }).catch(() => {}).finally(() => { loading = null; });
+    }).catch(error => console.warn("字体配置读取失败：", error)).finally(() => { loading = null; });
     return loading;
   }
   async function receiveMessage(event) {

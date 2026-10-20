@@ -18,9 +18,8 @@
     return SPF.normalize(stored.settings);
   }
 
-  async function write(value) {
-    await chrome.storage.local.set({ settings: value });
-    settings = value;
+  async function write(change) {
+    settings = await SPF.writeSettings(chrome.storage.local, change);
   }
 
   const matchRule = (value, href) => SPF.matchRule(value, href);
@@ -74,15 +73,14 @@
     if (busy || !url?.hostname) return;
     setBusy(true);
     try {
-      const latest = await read();
-      const matched = matchRule(latest, url.href);
-      const domain = currentDomain(matched);
-      if (!domain) return;
-      const index = latest.siteRules.findIndex(rule => rule.domain === domain);
-      const rules = latest.siteRules.slice();
-      if (index >= 0) rules[index] = { ...rules[index], [kind]: value };
-      else rules.push({ domain, action: "inherit", font: "", cjkMode: "inherit", [kind]: value });
-      await write({ ...latest, siteRules: rules });
+      await write(latest => {
+        const domain = currentDomain(matchRule(latest, url.href));
+        const index = latest.siteRules.findIndex(rule => rule.domain === domain);
+        const rules = latest.siteRules.slice();
+        if (index >= 0) rules[index] = { ...rules[index], [kind]: value };
+        else rules.push({ domain, action: "inherit", font: "", cjkMode: "inherit", [kind]: value });
+        return { ...latest, siteRules: rules };
+      });
       render();
       status("已保存", "success");
     } catch {
@@ -105,8 +103,7 @@
     const next = $("enabled").checked;
     setBusy(true);
     try {
-      const latest = await read();
-      await write({ ...latest, enabled: next });
+      await write(latest => ({ ...latest, enabled: next }));
       render();
       status("已保存", "success");
     } catch {

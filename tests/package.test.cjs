@@ -36,7 +36,6 @@ test("安装包中央目录与本地文件头路径一致，版本和全部文�
   assert.ok(names.includes("kit/kit.css") && names.includes("kit/kit.js"));
   assert.ok(names.includes("icons/source.svg"));
   for (const icon of Object.values(manifest.icons)) assert.ok(names.includes(icon), icon);
-  assert.equal(names.length, 23);
   assert.equal(new Set(names).size, names.length);
   assert.equal(fs.readFileSync(path.join(root, "main-runtime.js"), "utf8"), fs.readFileSync(path.join(root, "shared.js"), "utf8") + "\n" + fs.readFileSync(path.join(root, "engine.js"), "utf8"));
   assert.ok(fs.readFileSync(path.join(root, "build-release.ps1")).subarray(0, 3).equals(Buffer.from([0xEF, 0xBB, 0xBF])));

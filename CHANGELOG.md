@@ -2,6 +2,14 @@
 
 根据 Git 提交、版本标签及 GitHub Release 记录整理。版本标题链接到对应 Release，日期采用首次发布时的北京时间；同版本安装包的后续更新另行标注日期。
 
+## [v1.4.2](https://github.com/Speechlessmanbilibili/chinese-western-font-replacer/releases/tag/v1.4.2)（2026-10-20）
+
+- 设置页与弹窗共用写入锁，交错保存时保留独立字段和站点规则。
+- 完整保存站点规则与目标名单，移除数量截断。
+- 复用已校验配置、字体范围和名称集合，去除生成字体链的重复项。
+- 跨域样式副本使用原生解析，避免辅助字体变量被重复改写。
+- 统一设置页详情动画，移除未使用的界面工具。
+
 ## [v1.4.1](https://github.com/Speechlessmanbilibili/chinese-western-font-replacer/releases/tag/v1.4.1)（2026-10-19）
 
 - 保存设置时按字段合并最新配置，保留其他窗口的开关、站点规则与保存期间的新草稿。

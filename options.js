@@ -15,13 +15,10 @@
   let fontIndexCache = null;
   function fontCatalog() {
     if (!installedFonts) installedFonts = new Promise(resolve => {
-      if (!chrome.fontSettings?.getFontList) { resolve([]); return; }
-      try {
-        chrome.fontSettings.getFontList(fonts => {
-          if (chrome.runtime?.lastError) { resolve([]); return; }
-          resolve((fonts || []).flatMap(font => [font.fontId, font.displayName]).filter(name => typeof name === "string" && name));
-        });
-      } catch { resolve([]); }
+      chrome.fontSettings.getFontList(fonts => {
+        if (chrome.runtime.lastError) { resolve([]); return; }
+        resolve(fonts.flatMap(font => [font.fontId, font.displayName]));
+      });
     });
     return installedFonts;
   }
@@ -154,11 +151,10 @@
     button.disabled = true; hint.classList.remove("error"); hint.textContent = "正在读取本机字体……";
     try {
       const fonts = await window.queryLocalFonts();
-      const signature = fonts.map(font => font.postscriptName + "\0" + font.fullName).sort().join("\n");
       const aliases = await FontNames.buildIndex(fonts, [], (count, total) => {
         hint.textContent = `正在识别字体内部名称：${count}/${total}。`;
       });
-      fontIndexCache = { signature, aliases };
+      fontIndexCache = { aliases };
       await chrome.storage.local.set({ fontNameIndex: fontIndexCache });
       fontAliases = { ...fontAliases, ...SPF.normalizeFontAliases(aliases, 20000) };
       hint.textContent = `已识别 ${Object.keys(aliases).length} 个字体名称。保存设置后应用到网页。`;
@@ -197,9 +193,8 @@
     const settings = read();
     saving = true; saveButton.disabled = true; form.setAttribute("aria-busy", "true"); status("正在保存……");
     try {
-      const latest = SPF.normalize((await chrome.storage.local.get("settings")).settings);
-      const merged = SPF.mergeDraft(JSON.parse(saved), settings, latest);
-      await chrome.storage.local.set({ settings: merged });
+      const baseline = JSON.parse(saved);
+      const merged = await SPF.writeSettings(chrome.storage.local, latest => SPF.mergeDraft(baseline, settings, latest));
       fontAliases = { ...fontAliases, ...merged.fontAliases };
       const current = read(), rebased = SPF.mergeDraft(settings, current, merged);
       if (JSON.stringify(current) !== JSON.stringify(rebased)) fill(rebased);
@@ -212,31 +207,11 @@
   form.addEventListener("input", event => { if (event.target.matches("#font, #cjk-font, #song-font, #kai-font, #serif-chinese, #serif-western, .site-font")) event.target.setCustomValidity(""); });
   chrome.storage.local.get(["settings", "fontNameIndex"]).then(({ settings, fontNameIndex }) => {
     const value = SPF.normalize(settings);
-    fontIndexCache = fontNameIndex?.aliases && typeof fontNameIndex.signature === "string" ? fontNameIndex : null;
+    fontIndexCache = fontNameIndex?.aliases ? fontNameIndex : null;
     fontAliases = { ...value.fontAliases, ...SPF.normalizeFontAliases(fontIndexCache?.aliases, 20000) };
     if (fontIndexCache) $("font-index-status").textContent = "已载入本机字体名称缓存。安装或更新字体后可重新识别。";
     fill(value);
     saved = JSON.stringify(read()); loaded = true; form.inert = false; saveButton.disabled = false; form.setAttribute("aria-busy", "false"); changed(); preview();
   }).catch(error => { form.inert = false; form.setAttribute("aria-busy", "false"); status("读取设置失败：" + error.message, true); });
-  // 共用套件负责目录高亮与详情动画；测试环境未加载套件时保持原行为。
-  if (window.DSH) { DSH.initRailSpy(); DSH.initDetails(); }
-  // 原生details使用实际高度过渡，关闭时保留内容直至动画结束。
-  for (const details of document.querySelectorAll("details")) {
-    let animation = null;
-    let detailTarget = false;
-    details.querySelector("summary").addEventListener("click", event => {
-    if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    event.preventDefault();
-    const from = details.getBoundingClientRect().height;
-    detailTarget = animation ? !detailTarget : !details.open;
-    const closing = !detailTarget;
-    animation?.cancel();
-    details.style.height = "";
-    details.open = true;
-    const to = closing ? details.querySelector("summary").getBoundingClientRect().height : details.getBoundingClientRect().height;
-    details.style.overflow = "hidden";
-    animation = details.animate([{ height: from + "px" }, { height: to + "px" }], { duration: 180, easing: "ease-out" });
-    animation.onfinish = () => { details.open = !closing; details.style.height = ""; details.style.overflow = ""; animation = null; };
-    });
-  }
+  DSH.initRailSpy(); DSH.initDetails();
 })();

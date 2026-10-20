@@ -164,10 +164,13 @@ PingFang UI SC, PingFang SC
 
 ## 开发与构建
 
+常规测试使用独立测试浏览器；只生成主世界入口，发布包检查通过 `npm run test:package` 单独运行。测试环境使用 Node.js 24.17 或更新版本。
+
 ```powershell
 npm ci
 npx playwright install chromium
 npm test
+npm run test:package
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./build-release.ps1
 ```
 

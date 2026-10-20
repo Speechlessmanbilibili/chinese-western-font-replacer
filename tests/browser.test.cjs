@@ -192,7 +192,7 @@ test("正文名单原位替换，Song/SimHei 保留，未命中在最后追加�
   const page = await pageFor("body-names", '<style>#a{font-family:Arial,"HarmonyOS Sans SC",sans-serif}#b{font-family:SimSun,serif}#c{font-family:SimHei,sans-serif}#d{font-family:"Microsoft YaHei",Arial}#e{font-family:"HarmonyOS Sans",Arial}#f{font-family:"HarmonyOS_Sans",Arial}#g{font-family:"PingFang TC","PingFang HK","Microsoft JhengHei","Noto Sans TC","Source Han Sans TW",Arial}</style><p id=a>ABC“”</p><p id=b>中文 ABC</p><p id=c>ABC“”</p><p id=d>中文</p><p id=e>ABC“”</p><p id=f>ABC“”</p><p id=g>ABC“”</p>');
   await configured(page);
   const names = await page.evaluate(() => [...document.styleSheets].flatMap(x => [...x.cssRules]).filter(x => x.selectorText?.startsWith("#")).map(x => x.style.fontFamily));
-  assert.equal(names[0], '"Shared Punctuation Font", Arial, "SF Pro Text", "PingFang UI SC", "PingFang SC", "SF Pro Text", "PingFang UI SC", "PingFang SC"');
+  assert.equal(names[0], '"Shared Punctuation Font", Arial, "SF Pro Text", "PingFang UI SC", "PingFang SC"');
   assert.equal(names[1], 'SimSun, serif');
   assert.equal(names[2], '"Shared Punctuation Font", SimHei, "SF Pro Text", "PingFang UI SC", "PingFang SC"');
   assert.equal(names[3], '"Shared Punctuation Font", "SF Pro Text", "PingFang UI SC", "PingFang SC", Arial');
@@ -209,8 +209,8 @@ test("常见 CSS 模板的简中字体栈原位替换，西文与通用字体保
   const page = await pageFor("template-stacks", '<style>#a{font-family:"Helvetica Neue",Helvetica,"PingFang SC","Hiragino Sans GB","Microsoft YaHei","微软雅黑",Arial,sans-serif}#b{font-family:"PingFang SC","Noto Sans CJK SC","Noto Sans SC","Source Han Sans SC","Microsoft YaHei UI","Microsoft YaHei","Hiragino Sans GB","WenQuanYi Micro Hei",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}</style><p id=a>ABC“”</p><p id=b>中文</p>');
   await configured(page);
   const names = await page.evaluate(() => [...document.styleSheets[0].cssRules].map(x => x.style.fontFamily));
-  assert.equal(names[0], '"Shared Punctuation Font", "Helvetica Neue", Helvetica, ' + Array(4).fill('"SF Pro Text", "PingFang UI SC", "PingFang SC"').join(", ") + ', Arial, "SF Pro Text", "PingFang UI SC", "PingFang SC"');
-  assert.equal(names[1], '"Shared Punctuation Font", ' + Array(10).fill('"SF Pro Text", "PingFang UI SC", "PingFang SC"').join(", ") + ', "Segoe UI", "SF Pro Text", "PingFang UI SC", "PingFang SC"');
+  assert.equal(names[0], '"Shared Punctuation Font", "Helvetica Neue", Helvetica, "SF Pro Text", "PingFang UI SC", "PingFang SC", Arial');
+  assert.equal(names[1], '"Shared Punctuation Font", "SF Pro Text", "PingFang UI SC", "PingFang SC", "Segoe UI"');
   assert.deepEqual(await fonts(page, "#b"), chineseReference);
 });
 test("系统字体与 Apple 文本系列使用 SF Pro Text 和苹方 UI，变量切换保留宋体", async () => {
@@ -591,4 +591,20 @@ test("中文字体名称从真实 TTC 名称表识别，保存后用同一简中
     await worker.evaluate(settings => chrome.storage.local.set({ settings }), saved);
   }
 });
+test("真实弹窗编辑显式默认端口规则，不新增低优先级同域名规则", async () => {
+  const page = await context.newPage(), popup = await context.newPage();
+  try {
+    await page.goto("chrome-extension://leodnciablfoggcacioldiippnfdonmg/options.html");
+    await page.waitForFunction(() => !document.getElementById("save").disabled);
+    await page.evaluate(() => chrome.storage.local.set({ settings: { enabled: true, siteRules: [{ domain: "example.com:443", action: "off" }] } }));
+    await popup.addInitScript(() => { chrome.tabs.query = async () => [{ url: "https://example.com/" }]; });
+    await popup.goto("chrome-extension://leodnciablfoggcacioldiippnfdonmg/popup.html");
+    await popup.waitForFunction(() => document.getElementById("host").textContent === "example.com");
+    await popup.locator('input[name="site-mode"][value="on"]').click();
+    await popup.waitForFunction(() => document.getElementById("status").textContent === "已保存");
+    const rules = await page.evaluate(async () => (await chrome.storage.local.get("settings")).settings.siteRules);
+    assert.equal(rules.length, 1); assert.equal(rules[0].domain, "example.com:443"); assert.equal(rules[0].action, "on");
+  } finally { await page.close(); await popup.close(); }
+});
+
 test("页面没有扩展运行错误", () => { assert.deepEqual(errors, []); });

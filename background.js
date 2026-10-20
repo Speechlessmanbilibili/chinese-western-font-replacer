@@ -50,7 +50,6 @@ function decodeStylesheet(bytes, contentType, environmentEncoding) {
   return { css: decoder.decode(bytes), encoding: decoder.encoding };
 }
 chrome.fontSettings.onFontChanged.addListener(() => fontCache.clear());
-chrome.action.onClicked.addListener(() => chrome.runtime.openOptionsPage());
 chrome.runtime.onInstalled.addListener(({ reason }) => {
   if (reason === "install") chrome.runtime.openOptionsPage();
 });
