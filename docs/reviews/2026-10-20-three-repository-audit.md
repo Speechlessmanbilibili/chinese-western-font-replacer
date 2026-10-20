@@ -2,7 +2,7 @@
 
 审查日期：2026 年 10 月 20 日，北京时间。
 
-这轮按激进精简的方向审查：删除只服务测试替身的生产分支、无人调用的实现和重复测试，同时核对复杂保护机制实际守住的行为。初审结论保留原提交基线，文末“实施结果”记录当前工作区的修改与验证。
+这轮按激进精简的方向审查：删除只服务测试替身的生产分支、无人调用的实现和重复测试，同时核对复杂保护机制实际守住的行为。初审结论保留原提交基线，文末“实施结果”记录修改、验证及正式发布结果。
 
 ## 范围与基线
 
@@ -235,7 +235,7 @@ node --test --test-reporter=spec tests/shared.test.cjs tests/bridge.test.cjs tes
 
 ### 安装包
 
-以下为修复完成时、升级版本号前的构建记录，扩展身份保持原值。包已重建并复制到系统下载目录，下载副本与构建副本逐字节一致。正式版本的构建和发布记录另列于文末。
+以下为修复完成时、升级版本号前的构建记录，扩展身份保持原值。包已重建并复制到系统下载目录，下载副本与构建副本逐字节一致。正式版本的构建和发布记录见下文。
 
 | 安装包 | 字节 | SHA-256 |
 |---|---:|---|
@@ -254,3 +254,15 @@ node --test --test-reporter=spec tests/shared.test.cjs tests/bridge.test.cjs tes
 | [v1.4.2](https://github.com/Speechlessmanbilibili/chinese-western-font-replacer/releases/tag/v1.4.2) | `chinese-western-font-replacer-v1.4.2.zip` | 87528 | `11511ee631f2efdda0b3496e8c1ff670a9819206804feb01af97ed5c2d1c5b68` |
 
 字体切换同时提供 `apple-ui-mix.css`，2472 字节，SHA-256 为 `8f21da2021294b92716040bd882cfc13271692cb9041432974f03e57b697bae4`。
+
+### 发布核验（2026 年 10 月 20 日，北京时间）
+
+三个仓库的修复提交及版本标签均已推送，三个 GitHub Release 均为正式版本，并标记为各仓库最新版。远端标签解析后的提交与本地发布提交一致。
+
+| 仓库 | 正式版本 | 发布提交 | 发布时间 |
+|---|---|---|---|
+| native-auto-space | [v1.3.2](https://github.com/Speechlessmanbilibili/native-auto-space/releases/tag/v1.3.2) | `f4d81e986b0a8788f78666da85d89b117091138b` | 20:20:40 |
+| system-font-substituter | [v2.3.2](https://github.com/Speechlessmanbilibili/system-font-substituter/releases/tag/v2.3.2) | `cfd3a6fe00cab3da271710da998ac35d38d49461` | 20:20:46 |
+| chinese-western-font-replacer | [v1.4.2](https://github.com/Speechlessmanbilibili/chinese-western-font-replacer/releases/tag/v1.4.2) | `b3d74f9c1188f7fa616df2a594d4fbf2d752621c` | 20:20:52 |
+
+从 GitHub Release 重新下载三个 ZIP 与独立 CSS，四个附件均与本地构建逐字节一致，SHA-256 与上表一致。版本日志及对应 `docs/releases/` 发布说明草稿已随修复提交保存；本段核验结果另以文档提交保存到中西文字体替换仓库。
