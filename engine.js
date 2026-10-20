@@ -67,9 +67,7 @@
     const needsTail = append && conditional && SPF.chineseFamilies(value, config, true, preserve) !== plain;
     let result = punctuation ? SPF.prepend(value, config, append && !conditional, preserve, headName) : plain;
     if (needsTail) {
-      const names = SPF.chineseFontFamilies(config.cjkFont, config);
-      if (SPF.fontNames(config.cjkFont)[0]?.toLowerCase() !== "sf pro text") names.unshift("SF Pro Text");
-      result += ", " + blockedFallback(value, names.map(cssString).join(", "));
+      result += ", " + blockedFallback(value, SPF.bodyFontFamilies(config));
     }
     return result;
   }
@@ -83,7 +81,7 @@
           variants.push(entry);
           result.set(rule.name, { ...entry, variants });
         }
-        if (rule.styleSheet) { try { visit(rule.styleSheet.cssRules, conditions); } catch {} }
+        if (rule.styleSheet) { const rules = readableRules(rule.styleSheet); if (rules) visit(rules, conditions); }
         if (rule.cssRules) {
           const condition = rule.constructor.name === "CSSMediaRule" ? "@media " + rule.conditionText
             : rule.constructor.name === "CSSSupportsRule" ? "@supports " + rule.conditionText : null;
@@ -93,7 +91,7 @@
     };
     for (const sheet of [...document.styleSheets, ...document.adoptedStyleSheets]) {
       if (sheet.ownerNode === propertySheet) continue;
-      try { visit(sheet.cssRules); } catch {}
+      const rules = readableRules(sheet); if (rules) visit(rules);
     }
     for (const [name, entry] of scriptProperties) {
       const variant = { ...entry, conditions: [] };
@@ -697,7 +695,7 @@
   }
   function configure(settings) {
     const next = normalize(settings);
-    const signature = JSON.stringify([next.enabled, next.font, next.groups, next.extra, next.punctuationTargets, next.fontAliases, next.cjkMode, next.cjkFont, next.cjkTargets, next.replaceSong, next.songFont, next.replaceKai, next.kaiFont, next.replaceSerif, next.serifChinese, next.serifWestern, next.serifShared]);
+    const signature = JSON.stringify([next.enabled, next.font, next.groups, next.extra, next.punctuationTargets, next.fontAliases, next.cjkMode, next.cjkFont, next.cjkWesternFont, next.cjkTargets, next.replaceSong, next.songFont, next.replaceKai, next.kaiFont, next.replaceSerif, next.serifChinese, next.serifWestern, next.serifShared]);
     if (config?.signature === signature) return;
     stop();
     config = Object.assign(next, { signature });

@@ -198,7 +198,7 @@ test("正文名单原位替换，Song/SimHei 保留，未命中在最后追加�
   assert.equal(names[3], '"Shared Punctuation Font", "SF Pro Text", "PingFang UI SC", "PingFang SC", Arial');
   assert.equal(names[4], '"Shared Punctuation Font", "HarmonyOS Sans", Arial, "SF Pro Text", "PingFang UI SC", "PingFang SC"');
   assert.equal(names[5], '"Shared Punctuation Font", HarmonyOS_Sans, Arial, "SF Pro Text", "PingFang UI SC", "PingFang SC"');
-  assert.equal(names[6], '"PingFang TC", "PingFang HK", "Microsoft JhengHei", "Noto Sans TC", "Source Han Sans TW", Arial, "SF Pro Text", "PingFang UI SC", "PingFang SC"');
+  assert.equal(names[6], '"PingFang TC", "PingFang HK", "Microsoft JhengHei", "Noto Sans TC", "Source Han Sans TW", Arial, "Shared Punctuation Font", "SF Pro Text", "PingFang UI SC", "PingFang SC"');
   await splitFonts(page, "#a", "Arial");
   assert.deepEqual(await fonts(page, "#d"), chineseReference);
   await page.locator("#d").evaluate(x => { x.textContent = "ABC中文"; });
@@ -232,6 +232,41 @@ test("系统字体与 Apple 文本系列使用 SF Pro Text 和苹方 UI，变量
   await page.evaluate(() => document.documentElement.style.setProperty("--body", "KaiTi"));
   await page.waitForFunction(() => !getComputedStyle(document.getElementById("v")).fontFamily.includes("PingFang UI SC"));
 });
+test("正文独有名单与系统后备在原位置使用标点，西文前置可保存为空并恢复", async () => {
+  const worker = context.serviceWorkers()[0];
+  const saved = await worker.evaluate(async () => (await chrome.storage.local.get("settings")).settings);
+  try {
+    await worker.evaluate(() => chrome.storage.local.set({ settings: { enabled: true, font: "Courier New", groups: ["quotes"], cjkMode: "replace", cjkFont: "PingFang UI SC", cjkWesternFont: "Georgia, Arial", punctuationTargets: [], cjkTargets: ["Custom Body", "-apple-system-body"], siteRules: [] } }));
+    const page = await pageFor("body-punctuation", '<style>#t{font-family:Custom Body}#later{font-family:Missing Display,-apple-system-body}#prior{font-family:"Times New Roman",-apple-system-body}#v{--body:Custom Body;font-family:var(--body),sans-serif}</style><p id=t>ABC“”</p><p id=later>ABC“”</p><p id=prior>ABC“”</p><p id=v>ABC“”</p>');
+    await configured(page);
+    for (const id of ["t", "later", "v"]) assert.deepEqual(await fonts(page, "#" + id), [{ family: "Courier New", glyphs: 2 }, { family: "Georgia", glyphs: 3 }]);
+    await splitFonts(page, "#prior", "Times New Roman");
+    await page.locator("#v").evaluate(node => node.style.setProperty("--body", "SimSun"));
+    await page.waitForFunction(() => !getComputedStyle(document.getElementById("v")).fontFamily.includes("Shared Punctuation Font"));
+    await page.locator("#v").evaluate(node => node.style.setProperty("--body", "Custom Body"));
+    await page.waitForFunction(() => getComputedStyle(document.getElementById("v")).fontFamily.includes("Georgia"));
+    assert.deepEqual(await fonts(page, "#v"), [{ family: "Courier New", glyphs: 2 }, { family: "Georgia", glyphs: 3 }]);
+    const options = await context.newPage();
+    try {
+      await options.goto("chrome-extension://" + extensionId + "/options.html");
+      await options.waitForFunction(() => !document.getElementById("save").disabled);
+      assert.equal(await options.locator("#cjk-western-font").inputValue(), "Georgia, Arial");
+      await options.locator("#cjk-western-font").fill("");
+      await options.locator("#save").click();
+      await options.waitForFunction(() => document.getElementById("status").textContent === "已保存");
+      await page.waitForFunction(() => !getComputedStyle(document.getElementById("t")).fontFamily.includes("Georgia"));
+      await options.reload();
+      await options.waitForFunction(() => !document.getElementById("save").disabled);
+      assert.equal(await options.locator("#cjk-western-font").inputValue(), "");
+      assert.equal(await worker.evaluate(async () => (await chrome.storage.local.get("settings")).settings.cjkWesternFont), "");
+      await options.locator("#enabled").uncheck();
+      await options.locator("#save").click();
+      await page.waitForFunction(() => SPF.familyName(getComputedStyle(document.getElementById("t")).fontFamily) === "custom body");
+      assert.equal(await page.locator("#t").evaluate(node => SPF.familyName(getComputedStyle(node).fontFamily)), "custom body");
+    } finally { await options.close(); await page.close(); }
+  } finally { await worker.evaluate(settings => chrome.storage.local.set({ settings }), saved); }
+});
+
 test("宋体、楷体及仿宋跳过追加，CSSOM 与多层字体变量切换同步更新", async () => {
   const page = await pageFor("non-sans", '<style>:root{--serif:SimSun;--chain:var(--serif);--loop-a:var(--loop-b);--loop-b:var(--loop-a,SimSun)}#a{font-family:Arial,SimSun,serif}#b{font-family:KaiTi,serif}#v{font-family:var(--chain),serif}#loop{font-family:var(--loop-a),serif}#mixed{font-family:Arial,"Microsoft YaHei",SimSun}</style><p id=a>中文“”</p><p id=b>中文“”</p><p id=v>中文“”</p><p id=loop>中文</p><p id=mixed>中文</p><p id=inline style="font-family:FangSong,serif!important">中文“”</p>');
   await configured(page);
@@ -306,7 +341,7 @@ test("多字体标点按输入顺序选字形，缺失字体和缺字继续尝�
   const worker = context.serviceWorkers()[0];
   const saved = await worker.evaluate(async () => (await chrome.storage.local.get("settings")).settings);
   try {
-    await worker.evaluate(async saved => chrome.storage.local.set({ settings: { ...saved, enabled: true, cjkMode: "off", replaceSong: false, replaceKai: false, siteRules: [], font: "Missing Shared Font, Courier New, Arial", groups: ["quotes"], extra: "" } }), saved);
+    await worker.evaluate(async saved => chrome.storage.local.set({ settings: { ...saved, enabled: true, cjkMode: "off", replaceSong: false, replaceKai: false, siteRules: [], font: [...Array.from({ length: 32 }, (_, i) => "Missing Shared Font " + i), "Courier New"].join(","), groups: ["quotes"], extra: "" } }), saved);
     const page = await pageFor("multiple-punctuation", '<style>p{font-family:Arial,sans-serif}</style><p id=t>ABC“”</p>');
     await configured(page);
     await splitFonts(page, "#t", "Arial");

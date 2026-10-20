@@ -64,7 +64,7 @@
     }
     return faces;
   }
-  async function buildIndex(fonts, wanted = [], progress = () => {}) {
+  async function buildIndex(fonts, progress = () => {}) {
     const aliases = Object.create(null), scores = new Map();
     const add = (name, entry, score) => {
       const key = clean(name).toLowerCase();
@@ -75,8 +75,6 @@
       const score = /^(?:regular|normal|roman|book)$/i.test(font.style) ? 20 : 0;
       add(font.family, entry, score); add(font.fullName, entry, score); add(font.postscriptName, entry, score);
     }
-    const wantedNames = wanted.map(name => name.toLowerCase());
-    const needed = () => wantedNames.some(name => !aliases[name]);
     const representatives = new Map();
     for (const font of fonts) if (!representatives.has(font.family) || /^(?:regular|normal|roman|book)$/i.test(font.style)) representatives.set(font.family, font);
     const ordered = [...new Set([...representatives.values(), ...fonts])];
@@ -94,7 +92,6 @@
         }
       } catch {}
       progress(++read, ordered.length);
-      if (wantedNames.length && !needed()) break;
       // 解析在设置页分批进行，保留输入和按钮响应。
       await new Promise(resolve => setTimeout(resolve, 0));
     }

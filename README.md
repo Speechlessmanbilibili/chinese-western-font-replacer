@@ -51,14 +51,14 @@
 | `Times New Roman, sans-serif` | 沿用原标点 |
 | `Space Grotesk, Arial, sans-serif` | 沿用原标点 |
 
-后备位置的无衬线字体不参与首项判断。字符按码位统一处理，因此中文与西文中的同一个字符会使用相同字形。
+独立标点替换只判断原首项；中文正文的替换与补充组在各自位置沿用所选标点字体。原列表里排在这些组之前的字体继续优先。字符按码位处理。
 
 ## 给中文正文安排合适的字体
 
 常见简中正文黑体与系统无衬线名称会在原位置替换。默认组合为：
 
 ```css
-"SF Pro Text", "PingFang UI SC", "PingFang SC"
+"Shared Punctuation Font", "SF Pro Text", "PingFang UI SC", "PingFang SC"
 ```
 
 前面的西文字体继续优先。例如，以下正文列表：
@@ -69,7 +69,7 @@ Arial, "Microsoft YaHei", sans-serif
 
 会使用 `Arial` 优先绘制可用字符，并在中文字体位置使用所选组合。没有命中目标名称时，在列表末尾补充该组合；原列表明确包含宋体、楷体、仿宋等中文字体时，保留相应系统后备并跳过末尾追加。
 
-目标中文字体前会补充 `SF Pro Text`。只填写 `PingFang UI SC` 时，其后自动补充 `PingFang SC`；填写多个字体时，保留自选顺序。
+“前置西文字体列表”默认使用 `SF Pro Text`，可改为多个本机字体，也可留空。正文组按“所选标点、西文、中文”的顺序原位生成；只填写 `PingFang UI SC` 时，其后自动补充 `PingFang SC`。宋体、楷体和衬线组合沿用各自的字体设置。
 
 <details>
 <summary>默认覆盖哪些正文与系统字体？</summary>
@@ -160,7 +160,7 @@ PingFang UI SC, PingFang SC
 - [字体替换器](https://github.com/Speechlessmanbilibili/system-font-substituter)：按目标名单替换网页字体，支持站点强制规则、连字和自定义 CSS。
 - [中西文自动间距](https://github.com/Speechlessmanbilibili/native-auto-space)：全局启用浏览器原生自动间距，并为网站单独设置开关。
 
-三个扩展分别安装、独立配置。与字体替换器搭配时，使用 v2.1.9 或更新版本，可识别多个前置标点范围字体。
+三个扩展分别安装、独立配置。与字体替换器搭配时，使用 v2.3.3 或更新版本，可识别第 33 项及之后的前置标点范围字体。
 
 ## 开发与构建
 

@@ -80,7 +80,7 @@ test("Shadow DOM 宿主挂回后恢复观察，闭合影子根的动态资源与
     shadow.getElementById("s").textContent = "p{font-family:Verdana,sans-serif}";
     shadow.getElementById("i").setAttribute("style", "font-family:Georgia,sans-serif!important");
   });
-  await page.waitForFunction(() => getComputedStyle(shadow.getElementById("t")).fontFamily.includes("Shared Punctuation Font") && getComputedStyle(shadow.getElementById("i")).fontFamily.startsWith("Georgia,") && !getComputedStyle(shadow.getElementById("i")).fontFamily.includes("Shared Punctuation Font"));
+  await page.waitForFunction(() => getComputedStyle(shadow.getElementById("t")).fontFamily.includes("Shared Punctuation Font") && getComputedStyle(shadow.getElementById("i")).fontFamily.startsWith("Georgia,") && getComputedStyle(shadow.getElementById("i")).fontFamily.includes("Shared Punctuation Font"));
   assert.ok((await page.evaluate(() => getComputedStyle(shadow.getElementById("t")).fontFamily)).includes("Verdana"));
   await settings({ ...defaultSettings, enabled: false });
   await page.waitForFunction(() => getComputedStyle(shadow.getElementById("i")).fontFamily === "Georgia, sans-serif");
