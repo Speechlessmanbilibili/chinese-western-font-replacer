@@ -2,6 +2,10 @@
 
 根据 Git 提交、版本标签及 GitHub Release 记录整理。版本标题链接到对应 Release，日期采用首次发布时的北京时间；同版本安装包的后续更新另行标注日期。
 
+## [v1.5.2](https://github.com/Speechlessmanbilibili/chinese-western-font-replacer/releases/tag/v1.5.2)（2026-10-24）
+
+- 统一源码、配置与文档的 LF 换行，通过 `.gitattributes` 和 `.editorconfig` 固定 Git 检出与编辑器保存格式。
+
 ## [v1.5.1](https://github.com/Speechlessmanbilibili/chinese-western-font-replacer/releases/tag/v1.5.1)（2026-10-21）
 
 - 调整设置页的宋体替换说明，删去“只”字，表述为“开启后，原位替换‘宋体’（SimSun）”。

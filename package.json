@@ -2,7 +2,7 @@
   "name": "chinese-western-font-replacer",
   "private": true,
   "license": "GPL-3.0-or-later",
-  "version": "1.5.1",
+  "version": "1.5.2",
   "scripts": {
     "pretest": "node scripts/build-runtime.cjs",
     "test": "node --test tests/shared.test.cjs tests/bridge.test.cjs tests/background-encoding.test.cjs tests/cssom-conversion.test.cjs tests/options-race.test.cjs tests/lifecycle.test.cjs tests/browser.test.cjs",
