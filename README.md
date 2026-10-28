@@ -34,7 +34,9 @@
 3. 打开 `edge://extensions/` 或 `chrome://extensions/`，开启开发者模式，将 ZIP 拖入扩展管理页。
 4. 点击扩展图标进入设置，填写本机字体名称，按需要启用各项功能，查看试样后保存。
 
-扩展适用于 Chrome、Edge 等 Chromium 浏览器，通过本机字体绘制。更新时拖入新版 ZIP，覆盖原扩展并沿用设置。固定扩展 ID：`leodnciablfoggcacioldiippnfdonmg`。
+扩展适用于 Chrome、Edge 等 Chromium 浏览器，通过本机字体绘制。同一扩展 ID 下更新时拖入新版 ZIP，覆盖原扩展并沿用设置。固定扩展 ID：`bgihfdaiapfhjcpkaajdcplkkhfhmodg`。
+
+从 `v1.5.3` 起启用上面的新 ID。请先记录旧版配置、停用旧扩展，再安装本版并重新配置，随后刷新已打开的网页。旧版与新版分别保存设置。
 
 ## 标点的字形，也值得单独选择
 
@@ -163,6 +165,8 @@ PingFang UI SC, PingFang SC
 三个扩展分别安装、独立配置。与字体替换器搭配时，使用 v2.3.3 或更新版本，可识别第 33 项及之后的前置标点范围字体。
 
 ## 开发与构建
+
+签名私钥的加密备份集中保存在独立私有仓库 [`font-extension-signing-keys`](https://github.com/Speechlessmanbilibili/font-extension-signing-keys)。本地密钥仓库与三个扩展项目同级；本项目仅保存公钥，解密口令由维护者另行保管。
 
 常规测试使用独立测试浏览器；只生成主世界入口，发布包检查通过 `npm run test:package` 单独运行。测试环境使用 Node.js 24.17 或更新版本。
 

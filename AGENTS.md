@@ -1,7 +1,8 @@
 # 开发要求
 
 - 本目录是独立的中西文字体替换扩展，单独配置、打包和安装。
-- `manifest.json` 的固定 `key` 对应 ID 为 `leodnciablfoggcacioldiippnfdonmg`；改名和发版保留此身份，以覆盖已有安装并保留设置。
+- `manifest.json` 的固定 `key` 对应 ID 为 `bgihfdaiapfhjcpkaajdcplkkhfhmodg`；改名和发版保留此身份，以覆盖已有安装并保留设置。
+- 存在独立私有密钥仓库 `font-extension-signing-keys`，本地目录与三个扩展项目同级，用于保存签名私钥的加密备份；解密口令由用户另行保管。本项目目录仅保存公钥。
 - `shared.js` 集中维护字符组、配置校验、站点匹配和 `unicode-range` 生成；`engine.js` 处理网站字体声明与 CSSOM 更新；`bridge.js` 传递配置与样式表读取请求。
 - `scripts/build-runtime.cjs` 将 `shared.js` 与 `engine.js` 合成为主世界入口 `main-runtime.js`，供测试与打包脚本复用；隔离脚本单独加载共有代码，避免浏览器按文件名去重。
 - 启动配置只读取一次，通过字符串事件同步传给主世界入口；注册 `FontFace` 后立即预加载。页面解析期间用微任务处理新增字体声明，并用配置代次取消旧任务。

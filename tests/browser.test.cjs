@@ -629,11 +629,11 @@ test("中文字体名称从真实 TTC 名称表识别，保存后用同一简中
 test("真实弹窗编辑显式默认端口规则，不新增低优先级同域名规则", async () => {
   const page = await context.newPage(), popup = await context.newPage();
   try {
-    await page.goto("chrome-extension://leodnciablfoggcacioldiippnfdonmg/options.html");
+    await page.goto("chrome-extension://bgihfdaiapfhjcpkaajdcplkkhfhmodg/options.html");
     await page.waitForFunction(() => !document.getElementById("save").disabled);
     await page.evaluate(() => chrome.storage.local.set({ settings: { enabled: true, siteRules: [{ domain: "example.com:443", action: "off" }] } }));
     await popup.addInitScript(() => { chrome.tabs.query = async () => [{ url: "https://example.com/" }]; });
-    await popup.goto("chrome-extension://leodnciablfoggcacioldiippnfdonmg/popup.html");
+    await popup.goto("chrome-extension://bgihfdaiapfhjcpkaajdcplkkhfhmodg/popup.html");
     await popup.waitForFunction(() => document.getElementById("host").textContent === "example.com");
     await popup.locator('input[name="site-mode"][value="on"]').click();
     await popup.waitForFunction(() => document.getElementById("status").textContent === "已保存");
