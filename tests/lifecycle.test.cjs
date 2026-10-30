@@ -11,6 +11,7 @@ const routes = new Map();
 const crossRoutes = new Map();
 const errors = [];
 const defaultSettings = { enabled: true, font: "Courier New", cjkMode: "replace" };
+const bodyFontGroup = '"Shared Punctuation Font", "SF Pro Text", "Local Replacement Font 1", "PingFang UI SC", "Local Replacement Font 2", "PingFang SC"';
 before(async () => {
   crossServer = http.createServer((req, res) => {
     const value = crossRoutes.get(req.url);
@@ -108,10 +109,10 @@ test("字体变量的多层回退原位替换正文黑体，宋体回退继续�
   const page = await pageFor("fallback", '<style>#a{font-family:var(--missing,"Microsoft YaHei"),Arial}#b{font-family:var(--missing,var(--next,"HarmonyOS Sans SC")),Arial}#c{font-family:var(--missing,SimSun),sans-serif}</style><p id=a>中文</p><p id=b>中文</p><p id=c>中文</p>');
   await page.waitForFunction(() => document.styleSheets[0].cssRules[0].style.fontFamily.includes("Shared Punctuation Font"));
   const names = await page.evaluate(() => [...document.styleSheets[0].cssRules].map(rule => rule.style.fontFamily.replace(/--spf-head-[\w-]+/g, "--head")));
-  assert.equal(names[0], 'var(--head,"Shared Punctuation Font", "SF Pro Text", "PingFang UI SC", "PingFang SC"),Arial');
-  assert.equal(names[1], 'var(--head,var(--head,"Shared Punctuation Font", "SF Pro Text", "PingFang UI SC", "PingFang SC")),Arial');
+  assert.equal(names[0], 'var(--head,' + bodyFontGroup + '),Arial');
+  assert.equal(names[1], 'var(--head,var(--head,' + bodyFontGroup + ')),Arial');
   assert.equal(names[2], 'var(--head,SimSun),sans-serif');
-  assert.equal(await page.locator("#a").evaluate(node => getComputedStyle(node).fontFamily), '"Shared Punctuation Font", "SF Pro Text", "PingFang UI SC", "PingFang SC", Arial');
+  assert.equal(await page.locator("#a").evaluate(node => getComputedStyle(node).fontFamily), bodyFontGroup + ', Arial');
 });
 
 test("空存储值恢复默认配置，不中断内容脚本", async () => {
@@ -261,14 +262,14 @@ test("无 referrer 的特殊来源框架按创建页端口执行站点规则", a
   await settings({ ...defaultSettings, siteRules: [{ domain: "127.0.0.1:" + (port + 1), action: "off" }] });
   for (const frame of frames) {
     await frame.waitForFunction(() => getComputedStyle(document.getElementById("t")).fontFamily.includes("Shared Punctuation Font"));
-    assert.equal(await frame.evaluate(() => [...document.fonts].length), 1);
+    assert.deepEqual(await frame.evaluate(() => [...document.fonts].map(face => SPF.familyName(face.family))), ["shared punctuation font", "local replacement font 1", "local replacement font 2"]);
   }
 });
 test("document.open 重建页面后保留字体处理及配置开关", async () => {
   const page = await pageFor("document-open", '<style>p{font-family:Arial,sans-serif}</style><p id=t>ABC“”</p>');
   await page.evaluate(() => { document.open(); document.write('<style>p{font-family:Verdana,sans-serif}</style><p id=t>ABC“”</p>'); document.close(); });
   await page.waitForFunction(() => getComputedStyle(document.getElementById("t")).fontFamily.includes("Shared Punctuation Font"));
-  assert.equal(await page.evaluate(() => [...document.fonts].length), 1);
+  assert.deepEqual(await page.evaluate(() => [...document.fonts].map(face => SPF.familyName(face.family))), ["shared punctuation font", "local replacement font 1", "local replacement font 2"]);
   // 根字体由后台独立注入，等待其完成后再检查配置开关。
   await page.waitForFunction(() => getComputedStyle(document.documentElement).fontFamily.includes("PingFang UI SC"));
   await settings({ ...defaultSettings, enabled: false });

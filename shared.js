@@ -83,6 +83,11 @@
       extra: typeof value.extra === "string" ? value.extra : "",
       punctuationTargets: Array.isArray(value.punctuationTargets) ? [...new Set(value.punctuationTargets.filter(x => typeof x === "string" && x.trim()).map(x => x.trim()))] : [...PUNCTUATION_TARGETS],
       fontAliases: normalizeFontAliases(value.fontAliases),
+      fontMappings: Array.isArray(value.fontMappings) ? value.fontMappings.filter(row => row && typeof row === "object").map(row => ({
+        family: typeof row.family === "string" ? row.family.trim() : "",
+        font: typeof row.font === "string" ? row.font.trim() : "",
+        weight: normalizeWeight(row.weight)
+      })) : [],
       cjkMode: value.cjkMode === "off" ? "off" : "replace",
       cjkFont: typeof value.cjkFont === "string" && value.cjkFont.trim() ? value.cjkFont.trim() : "PingFang UI SC",
       cjkWesternFont: typeof value.cjkWesternFont === "string" ? value.cjkWesternFont.trim() : "SF Pro Text",
@@ -170,13 +175,52 @@
     return Object.fromEntries(entries.slice(0, limit).filter(([name, entry]) => name.length <= 300 && entry && typeof entry.family === "string" && entry.family.length <= 300 && typeof entry.fullName === "string" && entry.fullName.length <= 300).map(([name, entry]) => [name.toLowerCase(), {
       family: entry.family, fullName: entry.fullName,
       postscriptName: typeof entry.postscriptName === "string" ? entry.postscriptName.slice(0, 300) : "",
-      weight: typeof entry.weight === "string" && /^\d+(?:\.\d+)? \d+(?:\.\d+)?$/.test(entry.weight) ? entry.weight : "normal"
+      weight: weightRange(entry.weight) ? normalizeWeight(entry.weight) : "normal",
+      exact: typeof entry.exact === "boolean" ? entry.exact : null
     }]));
   }
   function fontAlias(font, options) { return options?.fontAliases?.[font.toLowerCase()]; }
   function localFontSources(font, options) {
     const alias = fontAlias(font, options);
-    return [...new Set([alias?.fullName, alias?.postscriptName, font, font + " Regular"].filter(Boolean))].map(name => `local(${cssString(name)})`).join(", ");
+    return [...new Set([font, alias?.postscriptName, alias?.fullName, font + " Regular"].filter(Boolean))].map(name => `local(${cssString(name)})`).join(", ");
+  }
+  function weightRange(value) {
+    const match = typeof value === "string" && value.trim().match(/^(\d+(?:\.\d+)?)(?:(?:\s*(?:[-~～〜–－−]|—{1,2})\s*|\s+)(\d+(?:\.\d+)?))?$/);
+    if (!match) return null;
+    const start = Number(match[1]), end = Number(match[2] ?? match[1]);
+    return start >= 1 && end <= 1000 && start <= end ? [start, end] : null;
+  }
+  function normalizeWeight(value, separator = " ") {
+    const range = weightRange(value);
+    if (!range) return typeof value === "string" ? value.trim() : "";
+    return range[0] === range[1] ? String(range[0]) : range.join(separator);
+  }
+  function mappedFaces(family, source, range, settings) {
+    const rows = settings.fontMappings.filter(row => row.family.toLowerCase() === source.toLowerCase() && fontNames(row.font).length && weightRange(row.weight));
+    if (rows.length) return rows.map(row => ({ family, source: row.font, range, weight: row.weight,
+      sources: fontNames(row.font).map(name => localFontSources(name, settings)).join(", ") }));
+    return [{ family, source, range, weight: fontAlias(source, settings)?.weight || (/^PingFang UI (?:SC|TC|HK|MO)$/i.test(source) ? "100 900" : "normal"),
+      sources: localFontSources(source, settings) }];
+  }
+  function bodyFontReferences(value) {
+    const settings = working(value);
+    if (!settings[WORK].bodyReferences) {
+      const lists = [...(settings.cjkMode !== "off" ? [settings.cjkWesternFont, settings.cjkFont] : []),
+        ...(settings.replaceSong ? [settings.songFont] : []), ...(settings.replaceKai ? [settings.kaiFont] : [])];
+      const names = [...new Set(lists.flatMap(fontNames).map(name => name.toLowerCase()))];
+      settings[WORK].bodyReferences = new Map(names.map((name, i) => [name, "Local Replacement Font " + (i + 1)]));
+    }
+    return settings[WORK].bodyReferences;
+  }
+  function bodyFamilies(font, settings) {
+    const local = bodyFontReferences(settings).get(font.toLowerCase());
+    const mapped = settings.fontMappings.some(row => row.family.toLowerCase() === font.toLowerCase() && fontNames(row.font).length && weightRange(row.weight));
+    const alias = fontAlias(font, settings);
+    if (local && (mapped || alias?.exact)) return [local];
+    // 旧索引没有字面分类，先保留原名并用 local() 加载，再尝试规范家族名。
+    if (alias?.exact === null) return [...new Set([font, local, alias.family].filter(Boolean))];
+    // 普通家族继续原生匹配粗细；完整字面名称通过后备的 local() 注册加载。
+    return [...new Set([alias?.family || font, local].filter(Boolean))];
   }
   const prefix = cssString(FAMILY) + ", ";
   function familyList(value, input = false) {
@@ -232,8 +276,7 @@
     const names = fontNames(settings.font);
     if (!range) return [];
     // 独立名称保留每个字体的字重匹配与合成粗体，列表顺序交给浏览器回退。
-    return settings[WORK].punctuationFaces = names.map((source, i) => ({ family: FAMILY + (i ? " " + (i + 1) : ""), source, range,
-      weight: fontAlias(source, settings)?.weight || (/^PingFang UI (?:SC|TC|HK|MO)$/i.test(source) ? "100 900" : "normal") }));
+    return settings[WORK].punctuationFaces = names.flatMap((source, i) => mappedFaces(FAMILY + (i ? " " + (i + 1) : ""), source, range, settings));
   }
   const serifRangeCache = new Map();
   function serifRanges(shared = "chinese") {
@@ -273,10 +316,13 @@
     const ranges = serifRanges(settings.serifShared);
     // 每个后备字体单独注册，避免中文变量字重改变西文字体的字重匹配。
     return settings[WORK].serifFaces = [["chinese", SERIF_CHINESE, settings.serifChinese], ["western", SERIF_WESTERN, settings.serifWestern]].flatMap(([side, family, list]) =>
-      fontNames(list).map((source, i) => ({ family: family + (i ? " " + (i + 1) : ""), source, side, range: ranges[side],
-        weight: fontAlias(source, settings)?.weight || (/^PingFang UI (?:SC|TC|HK|MO)$/i.test(source) ? "100 900" : "normal") })));
+      fontNames(list).flatMap((source, i) => mappedFaces(family + (i ? " " + (i + 1) : ""), source, ranges[side], settings).map(face => ({ ...face, side }))));
   }
-  function fontFaces(value) { const settings = working(value); return [...punctuationFaces(settings), ...serifFaces(settings)]; }
+  function fontFaces(value) {
+    const settings = working(value);
+    return [...punctuationFaces(settings), ...serifFaces(settings), ...[...bodyFontReferences(settings)].flatMap(([source, family]) =>
+      mappedFaces(family, source, "U+0-10FFFF", settings).map(face => ({ ...face, body: true })))];
+  }
   function isGenericSerif(value) {
     const part = value.replace(/\/\*[\s\S]*?\*\//g, " ").trim();
     return part[0] !== '"' && part[0] !== "'" && familyName(part) === "serif";
@@ -340,13 +386,13 @@
   function chineseFontFamilies(font, options) {
     const names = fontNames(font);
     const selected = names.length === 1 && names[0].toLowerCase() === "pingfang ui sc" ? [names[0], "PingFang SC"] : names;
-    return selected.map(name => fontAlias(name, options)?.family || name);
+    return options ? selected.flatMap(name => bodyFamilies(name, working(options))) : selected;
   }
   function bodyFontFamilies(value) {
     const settings = working(value);
     return settings[WORK].bodyFamilies ||= [...new Set([
       ...punctuationFaces(settings).map(face => face.family),
-      ...fontNames(settings.cjkWesternFont).map(name => fontAlias(name, settings)?.family || name),
+      ...fontNames(settings.cjkWesternFont).flatMap(name => bodyFamilies(name, settings)),
       ...chineseFontFamilies(settings.cjkFont, settings)
     ].map(cssString))].join(", ");
   }
@@ -487,7 +533,7 @@
     // 只依据原字体首项判断；后备字体与替换后新增的名称不参与。
     if (hasSans(value, settings)) {
       const names = new Set(faces.map(face => face.family.toLowerCase()));
-      return faces.map(face => cssString(face.family)).join(", ") + ", " + familyList(result).filter(part => !names.has(familyName(part))).join(",").trimStart();
+      return [...new Set(faces.map(face => cssString(face.family)))].join(", ") + ", " + familyList(result).filter(part => !names.has(familyName(part))).join(",").trimStart();
     }
     const first = leadingVariable(value);
     if (!first) return result;
@@ -501,5 +547,5 @@
     parts[0] = "var(" + (name || parts[0].slice(parts[0].indexOf("(") + 1).split(",")[0].trim()) + fallback + ")";
     return parts.join(",");
   }
-  globalThis.SPF = Object.freeze({ writeSettings, mergeDraft, matchRule, FAMILY, CHINESE_FONTS, SYSTEM_FONTS, DEFAULT_TARGETS, PUNCTUATION_TARGETS, CHANNEL, GROUPS, normalize, normalizeFontAliases, fontAlias, parseDomain, effective, characters, unicodeRange, cssString, localFontSources, prepend, prefix, familyList, familyName, fontNames, punctuationFaces, serifRanges, serifFaces, fontFaces, hasSans, hasSerif, leadingVariable, firstVariableReferences, hasChineseNonSans, chineseFontFamilies, bodyFontFamilies, chineseFamilies, variableReferences, hasBodyFonts, hasFonts });
+  globalThis.SPF = Object.freeze({ writeSettings, mergeDraft, matchRule, FAMILY, CHINESE_FONTS, SYSTEM_FONTS, DEFAULT_TARGETS, PUNCTUATION_TARGETS, CHANNEL, GROUPS, normalize, normalizeFontAliases, fontAlias, weightRange, normalizeWeight, parseDomain, effective, characters, unicodeRange, cssString, localFontSources, prepend, prefix, familyList, familyName, fontNames, punctuationFaces, serifRanges, serifFaces, fontFaces, hasSans, hasSerif, leadingVariable, firstVariableReferences, hasChineseNonSans, chineseFontFamilies, bodyFontFamilies, chineseFamilies, variableReferences, hasBodyFonts, hasFonts });
 })();

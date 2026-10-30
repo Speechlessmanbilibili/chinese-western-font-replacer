@@ -22,6 +22,8 @@
 - 设置页使用中文注释、中国大陆标点与弯引号，代码语法除外；示例域名使用 `example.com`，不使用原生下拉框。
 - 设置页缓存浏览器字体目录，用于正文家族检测和相近完整名称提示；标点字体以字形加载结果判断。异步检测更新提示前核对当前预览代次。
 - `font-names.js` 在设置页通过 Local Font Access 读取真实字体数据，解析 SFNT/TTC 的多语言名称及可变字重范围；字体身份由内部名称关联，加载通过 `FontFace` 验证。名称索引保存在 `fontNameIndex`，配置仅携带所选字体的 `fontAliases`，输入及保存保留用户原名称。网页端复用解析结果。
+- `fontMappings` 是默认空白的手动字重映射列表，每行保存 `family`、本机字面后备列表 `font` 及 CSS 字重 `weight`；同族区间互不重叠。各替换路径按原 `font-weight` 选择字面。普通正文家族原生优先，完整字面使用 `local()` 后备；名称索引的 `exact` 区分具体字面与家族。映射更新、删除及停用时释放旧字体。
+- 字重区间接受波浪线、连接号与 CSS 空格写法；设置页在离焦、`change`、按 Enter 确认及保存时统一显示为 `～`，配置与 `FontFace` 描述符使用 CSS 空格区间。输入未完成时保留原串，离焦校验不抢回焦点。单值、闭区间、间隙及小数字重由浏览器原生选择字面。
 - 系统无衬线及 Apple 文本样式名称同样原位使用正文组；明确包含中文宋体、楷体等时保留系统后备项。默认名单与历史完整集合迁移集中维护在 `shared.js`。
 - 每次修改后运行真实 Chromium 回归，验证实际绘制字体、动态样式与设置页；重建版本 ZIP，并校验文件头、根目录、版本及文件内容。
 - 在本目录运行 `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\build-release.ps1`；安装包命名为 `chinese-western-font-replacer-v<VERSION>.zip`，自动复制到运行时获取的系统下载目录，GitHub Release 使用相同文件名。

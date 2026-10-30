@@ -2,6 +2,14 @@
 
 根据 Git 提交、版本标签及 GitHub Release 记录整理。版本标题链接到对应 Release，日期采用首次发布时的北京时间；同版本安装包的后续更新另行标注日期。
 
+## [v1.6.0](https://github.com/Speechlessmanbilibili/chinese-western-font-replacer/releases/tag/v1.6.0)（2026-10-31）
+
+- 新增手动字重映射，将多个本机字面按单个字重或区间组合为自定义家族，覆盖各字体替换板块。
+- 字重区间支持波浪线、连接号及 CSS 空格写法，离焦、按 Enter 确认或保存时统一显示为 `～`；字面选择保留原生 CSS 区间、间隙及小数字重语义。
+- 正文、宋体与楷体支持通过 `local()` 调用具体完整字面及 PostScript 名，保留普通家族的原生粗细选择。
+- 本机字体名称索引区分家族与具体字面；缺少英文完整名称时优先使用 Windows 简中名称。
+- 新增试样字重滑杆与映射字面加载提示，保存前检查区间顺序及同族重叠。
+
 ## [v1.5.3](https://github.com/Speechlessmanbilibili/chinese-western-font-replacer/releases/tag/v1.5.3)（2026-10-28）
 
 - 启用新的扩展公钥与 ID：`bgihfdaiapfhjcpkaajdcplkkhfhmodg`，后续版本沿用此身份。

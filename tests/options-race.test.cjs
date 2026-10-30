@@ -90,7 +90,7 @@ test("宋体和楷体默认关闭，多字体预览、保存与无效列表提�
     await page.locator("#song-font").fill("Missing Font, SimSun"); await page.locator("#kai-font").fill("Missing Font，KaiTi");
     await page.locator("#font").fill("Missing Font, Courier New");
     await page.waitForFunction(() => ["font-status", "song-font-status", "kai-font-status"].every(id => document.getElementById(id).textContent.includes("已找到")));
-    assert.deepEqual(await page.locator(".preview-kai").evaluate(node => SPF.familyList(node.style.fontFamily).map(SPF.familyName)), ["missing font", "kaiti", "serif"]);
+    assert.deepEqual(await page.locator(".preview-kai").evaluate(node => SPF.familyList(node.style.fontFamily).map(SPF.familyName)), ["missing font", "local replacement font 1", "kaiti", "local replacement font 3", "serif"]);
     await page.getByRole("button", { name: "保存设置" }).click();
     await page.waitForFunction(() => saves.length === 1);
     const stored = await page.evaluate(() => saves[0].value.settings);
@@ -105,6 +105,72 @@ test("宋体和楷体默认关闭，多字体预览、保存与无效列表提�
     await page.locator("#replace-song").uncheck();
     await page.getByRole("button", { name: "保存设置" }).click();
     await page.waitForFunction(() => saves.length === 2);
+    await page.evaluate(() => saves[1].resolve());
+  } finally { await page.close(); }
+});
+
+test("字重映射在点击离焦、Tab 或 Enter 确认后归一，保存期间保留新草稿", async () => {
+  const page = await fixture();
+  try {
+    await initialize(page);
+    assert.equal(await page.locator(".font-mapping").count(), 0);
+    await page.locator("#add-font-mapping").click();
+    await page.locator(".mapping-family").fill("阅读字体");
+    await page.locator(".mapping-font").fill("Arial");
+    await page.locator(".mapping-weight").fill("100~400");
+    await page.locator(".mapping-weight").press("Tab");
+    assert.equal(await page.locator(".mapping-weight").inputValue(), "100～400");
+    assert.equal(await page.evaluate(() => saves.length), 0);
+    await page.locator(".mapping-weight").fill("100 - 400");
+    await page.locator(".mapping-weight").press("Enter");
+    assert.equal(await page.locator(".mapping-weight").inputValue(), "100～400");
+    assert.equal(await page.evaluate(() => saves.length), 0);
+    await page.locator("#add-font-mapping").click();
+    await page.locator(".mapping-family").nth(1).fill("阅读字体");
+    await page.locator(".mapping-font").nth(1).fill("Courier New");
+    await page.locator(".mapping-weight").nth(1).fill("400—900");
+    await page.locator(".mapping-family").nth(1).click();
+    assert.equal(await page.locator(".mapping-weight").nth(1).inputValue(), "400～900");
+    await page.getByRole("button", { name: "保存设置" }).click();
+    assert.equal(await page.evaluate(() => saves.length), 0);
+    assert.ok((await page.locator(".mapping-weight").first().evaluate(node => node.validationMessage)).includes("重叠"));
+    await page.locator(".mapping-weight").nth(1).fill("900-401");
+    await page.locator(".mapping-weight").nth(1).press("Tab");
+    assert.equal(await page.locator(".mapping-weight").nth(1).inputValue(), "900-401");
+    assert.equal(await page.locator(".mapping-weight").nth(1).evaluate(node => node.validity.customError), true);
+    assert.equal(await page.locator(".mapping-weight").nth(1).evaluate(node => node === document.activeElement), false);
+    assert.equal(await page.evaluate(() => saves.length), 0);
+    await page.locator(".mapping-weight").nth(1).fill("401 - 900");
+    await page.locator("#replace-kai").check();
+    assert.equal(await page.locator(".mapping-weight").nth(1).inputValue(), "401～900");
+    await page.locator("#kai-font").fill("阅读字体");
+    await page.waitForFunction(() => document.getElementById("kai-font-status").textContent === "已找到本机字体。");
+    await page.locator("#preview-weight").evaluate(node => { node.value = "700"; node.dispatchEvent(new Event("input", { bubbles: true })); });
+    assert.equal(await page.locator(".preview-kai").evaluate(node => getComputedStyle(node).fontWeight), "700");
+    await page.getByRole("button", { name: "保存设置" }).click();
+    await page.waitForFunction(() => saves.length === 1);
+    const submitted = await page.evaluate(() => saves[0].value.settings);
+    assert.deepEqual(submitted.fontMappings, [
+      { family: "阅读字体", font: "Arial", weight: "100 400" }, { family: "阅读字体", font: "Courier New", weight: "401 900" }
+    ]);
+    assert.deepEqual(await page.locator(".mapping-weight").evaluateAll(nodes => nodes.map(node => node.value)), ["100～400", "401～900"]);
+    const reopened = await fixture();
+    try {
+      await reopened.evaluate(settings => finishInitial({ settings }), submitted);
+      await reopened.waitForFunction(() => document.getElementById("status").textContent === "已保存");
+      assert.deepEqual(await reopened.locator(".mapping-weight").evaluateAll(nodes => nodes.map(node => node.value)), ["100～400", "401～900"]);
+    } finally { await reopened.close(); }
+    await page.locator(".mapping-font").nth(1).fill("Times New Roman");
+    await page.evaluate(() => saves[0].resolve());
+    await page.waitForFunction(() => document.getElementById("status").textContent === "有未保存的更改");
+    assert.equal(await page.locator(".mapping-font").nth(1).inputValue(), "Times New Roman");
+    await page.locator(".mapping-remove").nth(1).click();
+    await page.locator(".mapping-remove").click();
+    assert.equal(await page.locator(".font-mapping").count(), 0);
+    assert.equal(await page.locator("#empty-font-mappings").isVisible(), true);
+    await page.getByRole("button", { name: "保存设置" }).click();
+    await page.waitForFunction(() => saves.length === 2);
+    assert.deepEqual(await page.evaluate(() => saves[1].value.settings.fontMappings), []);
     await page.evaluate(() => saves[1].resolve());
   } finally { await page.close(); }
 });

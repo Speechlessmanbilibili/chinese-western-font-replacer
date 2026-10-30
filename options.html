@@ -42,6 +42,7 @@
       <a href="#chapter-chinese"><span>02</span><span>中文正文</span></a>
       <a href="#chapter-serif"><span>03</span><span>衬线组合</span></a>
       <a href="#chapter-sites"><span>04</span><span>网站设置</span></a>
+      <a href="#chapter-mappings"><span>05</span><span>字重映射</span></a>
       <div class="rail-foot"><span class="status-dot"></span><span>本机设置，不上传</span></div>
     </aside>
 
@@ -212,10 +213,23 @@
           <p id="empty-rules" class="empty">所有网站沿用全局设置。</p>
         </section>
 
+        <section class="section" id="chapter-mappings" aria-labelledby="mappings-heading">
+          <div class="section-head">
+            <div>
+              <div class="section-title-row"><span class="section-number">05</span><h2 class="section-title" id="mappings-heading">字重映射</h2></div>
+              <p class="section-desc">把多个本机字面组合成一个自定义家族，再将家族名称填入上面的字体列表。每行指定一个字重或区间，同一家族的区间互不重叠。</p>
+            </div>
+            <button id="add-font-mapping" type="button" class="btn">添加映射</button>
+          </div>
+          <p class="field-hint">家族名称填写纯文本；本机字面填写完整名称或 PostScript 名，多个名称用逗号分隔，作为同一字面的后备。字重支持 1～1,000，例如 400 或 100～300。区间可用 ~、～、—、- 或空格分隔，离开输入框或按 Enter 后统一显示为 ～；按 CSS 原生规则选择字面，网页原有字重保持不变。</p>
+          <div id="font-mappings"></div>
+          <p id="empty-font-mappings" class="empty">尚未添加字重映射。</p>
+        </section>
+
         <section class="section" aria-labelledby="font-library-heading">
           <div class="section-head">
             <div>
-              <div class="section-title-row"><span class="section-number">05</span><h2 class="section-title" id="font-library-heading">本机字体</h2></div>
+              <div class="section-title-row"><span class="section-number">06</span><h2 class="section-title" id="font-library-heading">本机字体</h2></div>
               <p class="section-desc">需要使用字体内部的中文或其他语言名称时，可在此识别。首次使用需允许浏览器访问本机字体，识别结果在本机缓存。</p>
             </div>
           </div>
@@ -235,6 +249,11 @@
         <div class="specimen-head">
           <span class="specimen-caption">试样</span>
           <button id="compare" type="button" class="btn btn-sm btn-ghost" aria-pressed="false">查看原字形</button>
+        </div>
+        <div class="preview-weight-control">
+          <label for="preview-weight">试样字重</label>
+          <input id="preview-weight" type="range" min="100" max="900" step="1" value="400">
+          <output id="preview-weight-value" for="preview-weight">400</output>
         </div>
         <div class="specimen-body">
           <div id="preview" class="preview">

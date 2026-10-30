@@ -28,7 +28,7 @@
 .help:empty { display: none; }
 
 /* 试样：options.js 直接写每个段落的 font-family，这里只保留初始字体与版式。 */
-.preview p { padding: 0; margin: 0; font-size: 18px; line-height: 1.9; overflow-wrap: anywhere; }
+.preview p { padding: 0; margin: 0; font-size: 18px; font-weight: inherit; line-height: 1.9; overflow-wrap: anywhere; }
 .preview p + p { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
 .preview p::before { content: attr(data-label); display: block; margin-bottom: 5px; color: var(--ink-3); font: 10px/1.5 var(--font-mono); letter-spacing: .06em; }
 #preview .preview-sans { font-family: Arial, "Microsoft YaHei", sans-serif; }
@@ -47,6 +47,21 @@
 #font-library > summary { padding: 12px 0; }
 .font-library-content { padding: 0 0 12px; }
 
+/* 字重映射：每行保留自定义家族、字面来源与 CSS 字重区间。 */
+#font-mappings { display: grid; gap: 12px; margin-top: 16px; }
+#add-font-mapping { flex: none; white-space: nowrap; }
+.font-mapping { padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--r-card); background: var(--sheet); }
+.mapping-fields { display: grid; grid-template-columns: 1fr 2fr 1fr auto; gap: 10px; align-items: end; }
+.mapping-fields label { min-width: 0; }
+.mapping-fields input { width: 100%; }
+.mapping-fields .field-label { display: block; margin-bottom: 6px; }
+.mapping-remove { margin-bottom: 1px; }
+.mapping-status { margin: 8px 0 0; }
+.preview-weight-control { display: flex; gap: 10px; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--line); font-size: 12px; }
+.preview-weight-control label { white-space: nowrap; margin: 0; }
+.preview-weight-control input { flex: 1; min-width: 0; width: 100%; accent-color: var(--accent); }
+.preview-weight-control output { font-variant-numeric: tabular-nums; min-width: 3ch; text-align: right; }
+
 /* 宋体与楷体并排卡片。 */
 .font-pair .card { margin: 0; }
 .font-pair .card + .card { margin-top: 0; }
@@ -56,4 +71,7 @@
 @media (max-width: 899px) {
   .rule-top { flex-wrap: wrap; }
   .rule-top .domain { flex-basis: 100%; }
+  .mapping-fields { grid-template-columns: 1fr 1fr; }
+  .mapping-source { grid-column: 1 / -1; grid-row: 2; }
+  .mapping-remove { justify-self: start; }
 }

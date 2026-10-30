@@ -43,6 +43,9 @@
         if (name) records.push({ id, language, platform, name });
       }
       const preferred = id => records.find(r => r.id === id && r.platform === 3 && r.language === 0x409)?.name
+        || records.find(r => r.id === id && r.platform === 3 && r.language === 0x804)?.name
+        || records.find(r => r.id === id && r.platform === 3)?.name
+        || records.find(r => r.id === id && r.platform === 0)?.name
         || records.find(r => r.id === id && r.platform === 1 && r.language === 0)?.name || records.find(r => r.id === id)?.name || "";
       let weight = "normal";
       const variations = tables.get("fvar");
@@ -60,7 +63,10 @@
         }
       }
       const family = preferred(16) || preferred(1), fullName = preferred(4), postscriptName = preferred(6);
-      if (family && fullName) faces.push({ family, fullName, postscriptName, weight, aliases: [...new Set(records.filter(r => [1, 4, 16, 21].includes(r.id)).map(r => r.name))], style: preferred(17) || preferred(2) });
+      // 传统家族名称可能包含独立字面；有排印家族时，由它保留整个家族的字重选择。
+      const families = [...new Set(records.filter(r => r.id === 16 || r.id === 21 || r.id === 1 &&
+        !records.some(other => (other.id === 16 || other.id === 21) && other.platform === r.platform && other.language === r.language)).map(r => r.name))];
+      if (family && fullName) faces.push({ family, fullName, postscriptName, weight, families, aliases: [...new Set(records.filter(r => [1, 4, 16, 21].includes(r.id)).map(r => r.name))], style: preferred(17) || preferred(2) });
     }
     return faces;
   }
@@ -73,7 +79,9 @@
     for (const font of fonts) {
       const entry = { family: font.family, fullName: font.fullName, postscriptName: font.postscriptName, weight: "normal" };
       const score = /^(?:regular|normal|roman|book)$/i.test(font.style) ? 20 : 0;
-      add(font.family, entry, score); add(font.fullName, entry, score); add(font.postscriptName, entry, score);
+      add(font.family, { ...entry, exact: false }, score);
+      add(font.fullName, { ...entry, exact: font.fullName.toLowerCase() !== font.family.toLowerCase() }, score);
+      add(font.postscriptName, { ...entry, exact: true }, score);
     }
     const representatives = new Map();
     for (const font of fonts) if (!representatives.has(font.family) || /^(?:regular|normal|roman|book)$/i.test(font.style)) representatives.set(font.family, font);
@@ -87,8 +95,9 @@
         for (const face of await readFont(await font.blob())) {
           if (face.weight !== "normal") covered.add(face.family);
           const entry = { family: face.family, fullName: face.fullName, postscriptName: face.postscriptName, weight: face.weight };
-          const score = (face.weight !== "normal" ? 100 : 0) + (/^(?:regular|normal|roman|book)$/i.test(face.style) ? 50 : 10);
-          for (const name of [...face.aliases, face.postscriptName]) add(name, entry, score);
+          const score = 100 + (face.weight !== "normal" ? 100 : 0) + (/^(?:regular|normal|roman|book)$/i.test(face.style) ? 50 : 10);
+          const families = new Set(face.families.map(name => name.toLowerCase()));
+          for (const name of [...face.aliases, face.postscriptName]) add(name, { ...entry, exact: !families.has(name.toLowerCase()) }, score);
         }
       } catch {}
       progress(++read, ordered.length);

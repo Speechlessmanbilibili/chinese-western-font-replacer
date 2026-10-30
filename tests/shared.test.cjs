@@ -14,7 +14,7 @@ test("默认字符包括共用标点，正文与英文标点由独立选项控�
 });
 test("Unicode 范围合并连续码位，支持补充平面并忽略空白与孤立代理", () => {
   assert.equal(S.unicodeRange({ groups: [], extra: "ABCBA 😀\uD800\n" }), "U+0041-0043,U+1F600");
-  assert.equal(S.fontFaces({ groups: [], extra: "" }).length, 0);
+  assert.equal(S.fontFaces({ groups: [], extra: "", cjkMode: "off" }).length, 0);
   assert.ok(S.localFontSources('Font"\\Name').includes('local("Font\\22 \\5c Name")'));
 });
 test("前置专用字体保留原列表，重复处理与全局关键字保持原义", () => {
@@ -49,7 +49,7 @@ test("站点规则匹配子域名、显式端口、默认端口与相同规则�
 });
 test("正文原位替换与后备补充保留原字体顺序，中文衬线阻止追加", () => {
   const options = { groups: [] };
-  const group = ["sf pro text", "pingfang ui sc", "pingfang sc"];
+  const group = ["sf pro text", "local replacement font 1", "pingfang ui sc", "local replacement font 2", "pingfang sc"];
   for (const name of ["Microsoft YaHei", "Noto Sans SC", "HarmonyOS Sans SC", "HarmonyOS_Sans_SC"]) {
     assert.deepEqual([...S.familyList(S.chineseFamilies('"' + name + '", Arial', options))].map(S.familyName), [...group, "arial"]);
   }
@@ -69,14 +69,14 @@ test("正文原位替换与后备补充保留原字体顺序，中文衬线阻�
 test("正文组在原位置沿用标点，西文前置可多项或留空，原有前置字体继续优先", () => {
   const options = { punctuationTargets: [], cjkTargets: ["Custom Body", "-apple-system-body"], cjkWesternFont: "Arial, Helvetica Neue" };
   for (const [value, expected] of [
-    ["Custom Body", ["shared punctuation font", "arial", "helvetica neue", "pingfang ui sc", "pingfang sc"]],
-    ["-apple-system-body", ["shared punctuation font", "arial", "helvetica neue", "pingfang ui sc", "pingfang sc"]],
-    ['"Times New Roman", -apple-system-body', ["times new roman", "shared punctuation font", "arial", "helvetica neue", "pingfang ui sc", "pingfang sc"]],
-    ["Unlisted", ["unlisted", "shared punctuation font", "arial", "helvetica neue", "pingfang ui sc", "pingfang sc"]]
+    ["Custom Body", ["shared punctuation font", "arial", "local replacement font 1", "helvetica neue", "local replacement font 2", "pingfang ui sc", "local replacement font 3", "pingfang sc"]],
+    ["-apple-system-body", ["shared punctuation font", "arial", "local replacement font 1", "helvetica neue", "local replacement font 2", "pingfang ui sc", "local replacement font 3", "pingfang sc"]],
+    ['"Times New Roman", -apple-system-body', ["times new roman", "shared punctuation font", "arial", "local replacement font 1", "helvetica neue", "local replacement font 2", "pingfang ui sc", "local replacement font 3", "pingfang sc"]],
+    ["Unlisted", ["unlisted", "shared punctuation font", "arial", "local replacement font 1", "helvetica neue", "local replacement font 2", "pingfang ui sc", "local replacement font 3", "pingfang sc"]]
   ]) assert.deepEqual([...S.familyList(S.prepend(value, options))].map(S.familyName), expected);
-  assert.deepEqual([...S.familyList(S.prepend("Custom Body", { ...options, cjkWesternFont: "" }))].map(S.familyName), ["shared punctuation font", "pingfang ui sc", "pingfang sc"]);
-  assert.deepEqual([...S.familyList(S.prepend("Custom Body", { ...options, groups: [] }))].map(S.familyName), ["arial", "helvetica neue", "pingfang ui sc", "pingfang sc"]);
-  assert.deepEqual([...S.familyList(S.chineseFamilies('"Microsoft YaHei", sans-serif', { cjkFont: "Custom Chinese", cjkWesternFont: "Custom Western" }))].map(S.familyName), ["shared punctuation font", "custom western", "custom chinese"]);
+  assert.deepEqual([...S.familyList(S.prepend("Custom Body", { ...options, cjkWesternFont: "" }))].map(S.familyName), ["shared punctuation font", "pingfang ui sc", "local replacement font 1", "pingfang sc"]);
+  assert.deepEqual([...S.familyList(S.prepend("Custom Body", { ...options, groups: [] }))].map(S.familyName), ["arial", "local replacement font 1", "helvetica neue", "local replacement font 2", "pingfang ui sc", "local replacement font 3", "pingfang sc"]);
+  assert.deepEqual([...S.familyList(S.chineseFamilies('"Microsoft YaHei", sans-serif', { cjkFont: "Custom Chinese", cjkWesternFont: "Custom Western" }))].map(S.familyName), ["shared punctuation font", "custom western", "local replacement font 1", "custom chinese", "local replacement font 2"]);
   assert.equal(S.normalize({}).cjkWesternFont, "SF Pro Text");
   assert.equal(S.normalize({ cjkWesternFont: "" }).cjkWesternFont, "");
 });
@@ -102,14 +102,15 @@ test("已保存的旧默认名单迁移，增删过的名单与显式空名单�
   }
 });
 test("系统无衬线与 Apple 文本样式原位替换，中文衬线栈保留系统回退", () => {
+  const group = '"SF Pro Text", "Local Replacement Font 1", "PingFang UI SC", "Local Replacement Font 2", "PingFang SC"';
   for (const name of S.SYSTEM_FONTS) {
-    assert.equal(S.chineseFamilies('Arial, ' + name, { groups: [] }), 'Arial,"SF Pro Text", "PingFang UI SC", "PingFang SC"', name);
+    assert.equal(S.chineseFamilies('Arial, ' + name, { groups: [] }), "Arial," + group, name);
     assert.equal(S.chineseFamilies('SimSun, ' + name, { groups: [] }), 'SimSun, ' + name, name);
     assert.equal(S.prepend('var(--song), ' + name, { groups: [] }, false), 'var(--song), ' + name, name);
-    assert.equal(S.chineseFamilies(name, { groups: [] }, false), '"SF Pro Text", "PingFang UI SC", "PingFang SC"', name);
+    assert.equal(S.chineseFamilies(name, { groups: [] }, false), group, name);
   }
   assert.ok(!S.DEFAULT_TARGETS.includes("Apple UI System"));
-  assert.equal(S.chineseFamilies('ui-serif, ui-monospace, monospace', { groups: [] }), 'ui-serif, ui-monospace, monospace, "SF Pro Text", "PingFang UI SC", "PingFang SC"');
+  assert.equal(S.chineseFamilies('ui-serif, ui-monospace, monospace', { groups: [] }), "ui-serif, ui-monospace, monospace, " + group);
 });
 test("变量引用支持中文、CSS 转义、嵌套回退、注释及大小写敏感名称", () => {
   assert.deepEqual([...S.variableReferences('var(--字体, var(--Font))')].sort(), ["--Font", "--字体"].sort());
@@ -123,8 +124,8 @@ test("字体列表保留引号内逗号，按输入顺序去重并生成独立�
   assert.deepEqual([...S.fontNames(String.raw`"A\22 B", "A\2c B"`)], ['A"B', "A,B"]);
   assert.deepEqual([...S.fontNames(String.raw`Courier\20 New, A\,B`)], ["Courier New", "A,B"]);
   assert.deepEqual([...S.chineseFontFamilies('PingFang UI SC, Custom Font, PingFang SC')], ["PingFang UI SC", "Custom Font", "PingFang SC"]);
-  assert.equal(S.chineseFamilies('"Microsoft YaHei", Arial', { groups: [], cjkFont: '"A,B", Custom Font' }), '"SF Pro Text", "A,B", "Custom Font", Arial');
-  assert.deepEqual([...S.fontFaces({ font: 'Missing Font, "A,B", Courier New' })].map(face => face.source), ["Missing Font", "A,B", "Courier New"]);
+  assert.equal(S.chineseFamilies('"Microsoft YaHei", Arial', { groups: [], cjkFont: '"A,B", Custom Font' }), '"SF Pro Text", "Local Replacement Font 1", "A,B", "Local Replacement Font 2", "Custom Font", "Local Replacement Font 3", Arial');
+  assert.deepEqual([...S.fontFaces({ font: 'Missing Font, "A,B", Courier New', cjkMode: "off" })].map(face => face.source), ["Missing Font", "A,B", "Courier New"]);
   assert.deepEqual([...S.punctuationFaces({ font: 'Arial, PingFang UI SC' })].map(x => [x.family, x.weight]), [["Shared Punctuation Font", "normal"], ["Shared Punctuation Font 2", "100 900"]]);
   const many = [...Array.from({ length: 32 }, (_, i) => "Missing " + i), "Arial"];
   assert.deepEqual([...S.fontNames(many.join(","))], many);
@@ -138,12 +139,12 @@ test("宋体与楷体独立选择替换，默认关闭，关闭黑体时仍处�
   assert.equal(S.normalize({}).replaceKai, false);
   const settings = { cjkMode: "off", replaceSong: true, songFont: "Song Custom, SimSun", replaceKai: true, kaiFont: "Kai Custom, KaiTi" };
   assert.equal(S.hasFonts({ ...settings, groups: [] }), true);
-  assert.equal(S.chineseFamilies('Arial, SimSun, KaiTi, FangSong, serif', settings), 'Arial,"Song Custom", "SimSun","Kai Custom", "KaiTi", FangSong, serif');
-  assert.equal(S.chineseFamilies('var(--song, var(--missing, "宋体")), serif', settings), 'var(--song, var(--missing,"Song Custom", "SimSun")), serif');
+  assert.equal(S.chineseFamilies('Arial, SimSun, KaiTi, FangSong, serif', settings), 'Arial,"Song Custom", "Local Replacement Font 1", "SimSun", "Local Replacement Font 2","Kai Custom", "Local Replacement Font 3", "KaiTi", "Local Replacement Font 4", FangSong, serif');
+  assert.equal(S.chineseFamilies('var(--song, var(--missing, "宋体")), serif', settings), 'var(--song, var(--missing,"Song Custom", "Local Replacement Font 1", "SimSun", "Local Replacement Font 2")), serif');
   assert.equal(S.chineseFamilies('"思源宋体", "楷体", "Songti TC", "Kaiti TC"', { ...settings, replaceKai: false }), '"思源宋体", "楷体", "Songti TC", "Kaiti TC"');
-  assert.equal(S.chineseFamilies('generic(kai), serif', settings), '"Kai Custom", "KaiTi", serif');
-  assert.equal(S.chineseFamilies('"SF Pro Text", SimSun', settings), '"SF Pro Text","Song Custom", "SimSun"');
-  assert.equal(S.chineseFamilies('KaiTi', { ...settings, kaiFont: '"SF Pro Text", Kai Custom' }), '"SF Pro Text", "Kai Custom"');
+  assert.equal(S.chineseFamilies('generic(kai), serif', settings), '"Kai Custom", "Local Replacement Font 3", "KaiTi", "Local Replacement Font 4", serif');
+  assert.equal(S.chineseFamilies('"SF Pro Text", SimSun', settings), '"SF Pro Text","Song Custom", "Local Replacement Font 1", "SimSun", "Local Replacement Font 2"');
+  assert.equal(S.chineseFamilies('KaiTi', { ...settings, kaiFont: '"SF Pro Text", Kai Custom' }), '"SF Pro Text", "Local Replacement Font 3", "Kai Custom", "Local Replacement Font 4"');
   assert.equal(S.chineseFamilies('Arial, serif', settings), 'Arial, serif');
   assert.equal(S.hasFonts({ groups: [], cjkMode: "off", replaceSong: false, replaceKai: false }), false);
 });
@@ -151,7 +152,8 @@ test("宋体开关只匹配宋体与 SimSun，其他宋体名称保留原列表�
   for (const cjkMode of ["off", "replace"]) {
     const settings = { cjkMode, replaceSong: true, songFont: "Song Custom" };
     for (const family of ['"宋体"', "SimSun", "simsun", String.raw`"\5b8b \4f53 "`]) {
-      assert.equal(S.chineseFamilies(`Arial, ${family}, serif`, settings), 'Arial,"Song Custom", serif');
+      const local = cjkMode === "off" ? 1 : 3;
+      assert.equal(S.chineseFamilies(`Arial, ${family}, serif`, settings), `Arial,"Song Custom", "Local Replacement Font ${local}", serif`);
     }
     for (const family of ["NSimSun", "STSong", "Songti SC", "新宋体", "华文宋体", "宋体-简", "Noto Serif SC", "Noto Serif CJK SC", "Source Han Serif SC", "思源宋体", "Songti TC"]) {
       const value = `Arial, "${family}", sans-serif`;
@@ -209,7 +211,7 @@ test("标点按原字体名称标签筛选，变量名称与替换后的字体�
     assert.equal(S.hasSans(value), false, value);
     assert.equal(S.prepend(value, options), value, value);
   }
-  assert.equal(S.prepend('Custom', { cjkFont: 'Fake Sans' }), 'Custom, "Shared Punctuation Font", "SF Pro Text", "Fake Sans"');
+  assert.equal(S.prepend('Custom', { cjkFont: 'Fake Sans' }), 'Custom, "Shared Punctuation Font", "SF Pro Text", "Local Replacement Font 1", "Fake Sans", "Local Replacement Font 2"');
   assert.equal(S.prepend('var(--a, var(--b, Arial, sans-serif))', options), 'var(--a,var(--b,"Shared Punctuation Font", Arial, sans-serif))');
   assert.equal(S.prepend('"Noto Sans SC", serif', { ...options, replaceSerif: true }).startsWith(S.prefix), true);
   assert.equal(S.hasSans('Arial', { punctuationTargets: [] }), false);
@@ -229,4 +231,66 @@ test("serif 中西文范围不重叠，汉字扩展、全角标点、西文与�
   }
   const faces = S.serifFaces({ replaceSerif: true, serifChinese: "PingFang UI SC, SimSun", serifWestern: "Arial" });
   assert.deepEqual([...faces].map(x => [x.side, x.weight]), [["chinese", "100 900"], ["chinese", "normal"], ["western", "normal"]]);
+});
+
+test("字重映射默认留空，同一家族按大小写无关名称组合且只前置一次", () => {
+  assert.deepEqual([...S.normalize({}).fontMappings], []);
+  const fontMappings = [
+    { family: "Reading", font: 'Missing Font, "A,B"', weight: "100～399" },
+    { family: "READING", font: "Reading Heavy", weight: "400—900" }
+  ];
+  const settings = { cjkMode: "off", font: "reading, Arial", fontMappings };
+  assert.deepEqual([...S.normalize(settings).fontMappings].map(row => row.weight), ["100 399", "400 900"]);
+  const punctuation = S.punctuationFaces(settings);
+  assert.deepEqual([...punctuation].map(face => [face.family, face.weight]), [
+    ["Shared Punctuation Font", "100 399"], ["Shared Punctuation Font", "400 900"], ["Shared Punctuation Font 2", "normal"]
+  ]);
+  assert.ok(punctuation[0].sources.includes('local("A,B")'));
+  assert.ok(!punctuation[0].sources.includes('local("A")'));
+  assert.equal(S.prepend("Arial, sans-serif", settings), '"Shared Punctuation Font", "Shared Punctuation Font 2", Arial, sans-serif');
+  const serif = S.serifFaces({ ...settings, replaceSerif: true, serifChinese: "READING", serifWestern: "Arial" });
+  assert.deepEqual([...serif].map(face => [face.family, face.weight]), [
+    ["Mixed Serif Chinese", "100 399"], ["Mixed Serif Chinese", "400 900"], ["Mixed Serif Western", "normal"]
+  ]);
+  assert.equal(serif[0].range, S.serifRanges().chinese);
+});
+
+test("正文映射和精确字面使用本机引用，普通家族保留原生粗细选择与后备", () => {
+  const settings = { groups: [], cjkWesternFont: "", cjkFont: "Reading", fontMappings: [
+    { family: "Reading", font: "Reading Light", weight: "100 399" },
+    { family: "Reading", font: "Reading Heavy", weight: "400 900" }
+  ] };
+  assert.equal(S.chineseFamilies("Microsoft YaHei", settings), '"Local Replacement Font 1"');
+  assert.deepEqual([...S.fontFaces(settings)].filter(face => face.body).map(face => [face.weight, face.source]), [["100 399", "Reading Light"], ["400 900", "Reading Heavy"]]);
+  const fontAliases = {
+    "example bold": { family: "Example Family", fullName: "Example Bold", postscriptName: "Example-Bold", exact: true },
+    "example family": { family: "Native Family", fullName: "Example Regular", postscriptName: "Example-Regular", exact: false }
+  };
+  const exact = { groups: [], cjkWesternFont: "", cjkFont: "Example Bold", fontAliases };
+  assert.equal(S.chineseFamilies("Microsoft YaHei", exact), '"Local Replacement Font 1"');
+  const [face] = S.fontFaces(exact);
+  assert.ok(face.sources.includes('local("Example Bold")'));
+  assert.ok(face.sources.includes('local("Example-Bold")'));
+  assert.equal(S.chineseFamilies("Microsoft YaHei", { ...exact, cjkFont: "Example Family" }), '"Native Family", "Local Replacement Font 1"');
+  assert.equal(S.chineseFamilies("Microsoft YaHei", { groups: [], cjkWesternFont: "", cjkFont: "Unindexed Full Name" }), '"Unindexed Full Name", "Local Replacement Font 1"');
+  assert.equal(S.chineseFamilies("Microsoft YaHei", { ...exact, cjkFont: "旧完整字面", fontAliases: {
+    "旧完整字面": { family: "Native Family", fullName: "Incomplete Mac Name", postscriptName: "Example-Bold" }
+  } }), '"旧完整字面", "Local Replacement Font 1", "Native Family"');
+});
+
+test("字重接受常用区间写法并统一存储与显示格式，边界使用 CSS 的 1～1000", () => {
+  for (const [value, expected] of [["1", [1, 1]], ["1000", [1000, 1000]], [" 400 ", [400, 400]], ["400.5 700.25", [400.5, 700.25]]]) {
+    assert.deepEqual([...S.weightRange(value)], expected, value);
+  }
+  for (const separator of [" ", "-", "~", "～", "〜", "—", "——", "–", "－", "−"]) {
+    const value = ` 100${separator}200 `;
+    assert.deepEqual([...S.weightRange(value)], [100, 200], value);
+  }
+  assert.equal(S.normalizeWeight(" 000100~0200.0 "), "100 200");
+  assert.equal(S.normalizeWeight("000100~0200.0", "～"), "100～200");
+  assert.equal(S.normalizeWeight("400~400", "～"), "400");
+  for (const value of ["", "0", "1001", "900~100", "-100~200", "100--200", "100 200 300", "100~200~300", "normal", "NaN", "1e2", 400]) {
+    assert.equal(S.weightRange(value), null, String(value));
+    assert.equal(S.normalizeWeight(typeof value === "string" ? ` ${value} ` : value), typeof value === "string" ? value : "");
+  }
 });

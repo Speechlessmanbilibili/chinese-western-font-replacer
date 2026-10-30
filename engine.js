@@ -695,15 +695,15 @@
   }
   function configure(settings) {
     const next = normalize(settings);
-    const signature = JSON.stringify([next.enabled, next.font, next.groups, next.extra, next.punctuationTargets, next.fontAliases, next.cjkMode, next.cjkFont, next.cjkWesternFont, next.cjkTargets, next.replaceSong, next.songFont, next.replaceKai, next.kaiFont, next.replaceSerif, next.serifChinese, next.serifWestern, next.serifShared]);
+    const signature = JSON.stringify([next.enabled, next.font, next.groups, next.extra, next.punctuationTargets, next.fontAliases, next.fontMappings, next.cjkMode, next.cjkFont, next.cjkWesternFont, next.cjkTargets, next.replaceSong, next.songFont, next.replaceKai, next.kaiFont, next.replaceSerif, next.serifChinese, next.serifWestern, next.serifShared]);
     if (config?.signature === signature) return;
     stop();
     config = Object.assign(next, { signature });
     active = next.enabled && hasFonts(next);
     if (active) {
       // FontFace 与 @font-face 使用相同的字符范围机制，注册后也覆盖 Shadow DOM。
-      for (const { family, source, range, weight } of SPF.fontFaces(next)) {
-        const face = new FontFace(family, SPF.localFontSources(source, next), { unicodeRange: range, display: "swap", weight });
+      for (const { family, sources, range, weight } of SPF.fontFaces(next)) {
+        const face = new FontFace(family, sources, { unicodeRange: range, display: "swap", weight });
         registeredFonts.push(face); document.fonts.add(face);
         face.load().catch(() => {});
       }

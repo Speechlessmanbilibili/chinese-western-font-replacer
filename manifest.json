@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "中西文字体替换",
-  "version": "1.5.3",
+  "version": "1.6.0",
   "description": "配置共用标点、中文正文及 serif 中西文字体组合，保留网站其余字体列表。",
   "minimum_chrome_version": "120",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAmxLRuyVCAf07LeDrbcV6sR7D1JHkPBWL6XI5wcthJZByWRb9Fbj5Cr0kGbQWwsPoEqVAQeHvebYCNHaE0D3RFAGSnEDSo8hP9W9uVmM0DGFwQTAihFhGWoK1pAU37tXeIQoD7zTcUzc+TJkMrS5vCUFfJNqE2SFp9FeS+WIVposTMCY0OgrMQ8pJoLYeP1FhWlYs/CmUmJxn/YJKqtga2ec+EfH2cwtwYEDoQhXFWsbtuieYd5mPaGCElIdwFjdcbYKMp7WLunbtlqPZtAdq2JVC856kgrPjMvtulEskUn6vg8baA1TiLQdOl3LUdB0hG8Hbgy/cHs670W688PKF9QIDAQAB",

@@ -32,11 +32,14 @@
     const glyphs = document.createElement("span"); glyphs.className = "glyphs"; glyphs.textContent = group.chars;
     label.append(input, title, glyphs); $("groups").append(label);
   }
+  const mappingRows = () => [...$("font-mappings").children];
+  const readMappings = () => mappingRows().map(row => ({ family: row.querySelector(".mapping-family").value, font: row.querySelector(".mapping-font").value, weight: row.querySelector(".mapping-weight").value }));
   function read() {
     return SPF.normalize({
       enabled: $("enabled").checked, font: $("font").value,
       punctuationTargets: $("punctuation-targets").value.split(/\r?\n/),
-      fontAliases: Object.fromEntries([...new Set([...["font", "cjk-font", "cjk-western-font", "song-font", "kai-font", "serif-chinese", "serif-western"].flatMap(id => SPF.fontNames($(id).value)), ...[...document.querySelectorAll(".site-font")].flatMap(input => SPF.fontNames(input.value))].map(name => name.toLowerCase()))].filter(name => fontAliases[name]).map(name => [name, fontAliases[name]])),
+      fontAliases: Object.fromEntries([...new Set([...["font", "cjk-font", "cjk-western-font", "song-font", "kai-font", "serif-chinese", "serif-western"].flatMap(id => SPF.fontNames($(id).value)), ...[...document.querySelectorAll(".site-font, .mapping-font")].flatMap(input => SPF.fontNames(input.value))].map(name => name.toLowerCase()))].filter(name => fontAliases[name]).map(name => [name, fontAliases[name]])),
+      fontMappings: readMappings(),
       groups: [...document.querySelectorAll("[data-group]:checked")].map(x => x.value), extra: $("extra").value,
       cjkMode: document.querySelector('input[name="cjk-mode"]:checked').value, cjkFont: $("cjk-font").value, cjkWesternFont: $("cjk-western-font").value, cjkTargets: $("cjk-targets").value.split(/\r?\n/),
       replaceSong: $("replace-song").checked, songFont: $("song-font").value,
@@ -70,10 +73,16 @@
     }
     const loads = [];
     const serifLoads = { chinese: [], western: [] };
-    for (const { family, source, side, range: faceRange, weight } of SPF.fontFaces(settings)) {
-      const font = new FontFace(family, SPF.localFontSources(source, settings), { unicodeRange: faceRange, weight });
+    const bodyLoads = new Map();
+    for (const { family, sources, side, body, range: faceRange, weight } of SPF.fontFaces(settings)) {
+      const font = new FontFace(family, sources, { unicodeRange: faceRange, weight });
       previewFonts.push(font); document.fonts.add(font);
-      (side ? serifLoads[side] : loads).push(font.load());
+      const load = font.load();
+      if (body) {
+        if (!bodyLoads.has(family)) bodyLoads.set(family, []);
+        bodyLoads.get(family).push(load);
+      } else (side ? serifLoads[side] : loads).push(load);
+      load.catch(() => {});
     }
     async function check(statusId, load, list, body = false, glyphs = "标点") {
       try {
@@ -98,11 +107,39 @@
     }
     for (const [enabled, list, id] of [[settings.cjkMode !== "off", settings.cjkFont, "cjk-font-status"], [settings.cjkMode !== "off" && settings.cjkWesternFont, settings.cjkWesternFont, "cjk-western-font-status"], [settings.replaceSong, settings.songFont, "song-font-status"], [settings.replaceKai, settings.kaiFont, "kai-font-status"]]) {
       if (enabled) checks.push(check(id, () => {
-        const sources = SPF.fontNames(list).map(name => SPF.localFontSources(name, settings)).join(", ");
-        return new FontFace("Shared Font Availability Check", sources).load();
+        return Promise.any(SPF.chineseFontFamilies(list, settings).flatMap(name => bodyLoads.get(name) || []));
       }, list, true));
     }
+    for (const [i, row] of mappingRows().entries()) {
+      const hint = row.querySelector(".mapping-status"), entry = settings.fontMappings[i];
+      hint.textContent = ""; hint.classList.remove("error");
+      if (!SPF.fontNames(entry.font).length || !SPF.weightRange(entry.weight)) continue;
+      const sources = SPF.fontNames(entry.font).map(name => SPF.localFontSources(name, settings)).join(", ");
+      checks.push(new FontFace("Mapping Availability Check", sources, { weight: entry.weight }).load().then(() => {
+        if (serial === previewSerial) hint.textContent = "已找到本机字面。";
+      }, () => {
+        if (serial === previewSerial) { hint.textContent = "本机字面加载失败，请检查完整名称或 PostScript 名。"; hint.classList.add("error"); }
+      }));
+    }
     await Promise.all(checks);
+  }
+  function addMapping(value = {}) {
+    const row = document.createElement("div"); row.className = "font-mapping";
+    const fields = document.createElement("div"); fields.className = "mapping-fields";
+    for (const [key, title, placeholder] of [["family", "家族名称", "自定义家族名"], ["font", "本机字面名称", "完整名称或 PostScript 名，逗号分隔"], ["weight", "CSS 字重", "400 或 100～300"]]) {
+      const label = document.createElement("label");
+      if (key === "font") label.className = "mapping-source";
+      const caption = document.createElement("span"); caption.className = "field-label"; caption.textContent = title;
+      const input = document.createElement("input"); input.className = "mapping-" + key;
+      input.value = key === "weight" ? SPF.normalizeWeight(value[key], "～") : value[key] || "";
+      input.placeholder = placeholder; input.required = true; input.autocomplete = "off"; input.spellcheck = false;
+      label.append(caption, input); fields.append(label);
+    }
+    const remove = document.createElement("button"); remove.type = "button"; remove.className = "btn btn-sm mapping-remove"; remove.textContent = "删除映射";
+    remove.addEventListener("click", () => { row.remove(); changed(); preview(); $("add-font-mapping").focus(); });
+    const hint = document.createElement("p"); hint.className = "help mapping-status"; hint.setAttribute("aria-live", "polite");
+    fields.append(remove); row.append(fields, hint); $("font-mappings").append(row);
+    return row.querySelector(".mapping-family");
   }
   let ruleSerial = 0;
   function addRule(rule = {}) {
@@ -133,6 +170,7 @@
   function changed() {
     if (!loaded) return;
     $("empty-rules").hidden = Boolean($("rules").children.length);
+    $("empty-font-mappings").hidden = Boolean(mappingRows().length);
     status(saving ? "正在保存……" : JSON.stringify(read()) === saved ? "已保存" : "有未保存的更改");
   }
   $("settings").addEventListener("input", event => {
@@ -141,6 +179,28 @@
     changed(); if (!event.target.closest("#rules")) preview();
   });
   $("add-rule").addEventListener("click", () => { addRule().focus(); changed(); });
+  $("add-font-mapping").addEventListener("click", () => { addMapping().focus(); changed(); });
+  function completeMappingWeight(input, report = false) {
+    const valid = SPF.weightRange(input.value);
+    input.setCustomValidity(valid ? "" : "请填写 1～1,000 内的单个字重或递增区间。");
+    if (!valid) { if (report) input.reportValidity(); return; }
+    const value = SPF.normalizeWeight(input.value, "～");
+    const edited = input.value !== value;
+    if (edited) input.value = value;
+    changed(); if (edited) preview();
+  }
+  for (const type of ["change", "focusout"]) $("font-mappings").addEventListener(type, event => {
+    if (event.target.matches(".mapping-weight")) completeMappingWeight(event.target);
+  });
+  $("font-mappings").addEventListener("keydown", event => {
+    if (event.key !== "Enter" || event.isComposing || !event.target.matches(".mapping-weight")) return;
+    event.preventDefault();
+    completeMappingWeight(event.target, true);
+  });
+  $("preview-weight").addEventListener("input", () => {
+    const weight = $("preview-weight").value;
+    $("preview-weight-value").textContent = weight; $("preview").style.fontWeight = weight;
+  });
   $("compare").addEventListener("click", () => {
     comparing = !comparing;
     $("compare").textContent = comparing ? "查看替换字形" : "查看原字形";
@@ -176,10 +236,25 @@
     for (const input of document.querySelectorAll("[data-group]")) input.checked = value.groups.includes(input.value);
     const rules = [...$("rules").children].map(x => ({ domain: x.querySelector(".domain").value, action: x.querySelector("[data-action]:checked").value, font: x.querySelector(".site-font").value, cjkMode: x.querySelector("[data-cjk]:checked").value }));
     if (JSON.stringify(rules) !== JSON.stringify(value.siteRules)) { $("rules").replaceChildren(); for (const rule of value.siteRules) addRule(rule); }
+    if (JSON.stringify(SPF.normalize({ fontMappings: readMappings() }).fontMappings) !== JSON.stringify(value.fontMappings)) { $("font-mappings").replaceChildren(); for (const row of value.fontMappings) addMapping(row); }
   }
   $("settings").addEventListener("submit", async event => {
     event.preventDefault();
     if (!loaded || saving) return;
+    const mappings = read().fontMappings;
+    for (const [i, row] of mappingRows().entries()) {
+      const entry = mappings[i], font = row.querySelector(".mapping-font"), weight = row.querySelector(".mapping-weight");
+      font.setCustomValidity(SPF.fontNames(entry.font).length ? "" : "请填写本机字体的完整名称或 PostScript 名。");
+      if (!font.reportValidity()) { font.focus(); status("请修正字面来源。", true); return; }
+      const range = SPF.weightRange(entry.weight);
+      const overlap = range && mappings.some((other, j) => {
+        const second = SPF.weightRange(other.weight);
+        return i !== j && entry.family.toLowerCase() === other.family.toLowerCase() && second && range[0] <= second[1] && range[1] >= second[0];
+      });
+      weight.setCustomValidity(!range ? "请填写 1～1,000 内的单个字重或递增区间。" : overlap ? "同一家族的字重区间重叠，请调整。" : "");
+      if (!weight.reportValidity()) { weight.focus(); status("请修正字重区间。", true); return; }
+      weight.value = SPF.normalizeWeight(entry.weight, "～");
+    }
     const rules = [...$("rules").children];
     for (const row of rules) {
       const input = row.querySelector(".domain");
@@ -206,6 +281,7 @@
   });
   $("rules").addEventListener("input", event => { if (event.target.classList.contains("domain")) event.target.setCustomValidity(""); });
   form.addEventListener("input", event => { if (event.target.matches("#font, #cjk-font, #cjk-western-font, #song-font, #kai-font, #serif-chinese, #serif-western, .site-font")) event.target.setCustomValidity(""); });
+  $("font-mappings").addEventListener("input", () => { for (const input of $("font-mappings").querySelectorAll("input")) input.setCustomValidity(""); });
   chrome.storage.local.get(["settings", "fontNameIndex"]).then(({ settings, fontNameIndex }) => {
     const value = SPF.normalize(settings);
     fontIndexCache = fontNameIndex?.aliases ? fontNameIndex : null;

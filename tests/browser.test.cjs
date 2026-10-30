@@ -11,6 +11,7 @@ let context, server, crossServer, origin, crossOrigin, extensionId;
 let chineseReference, westernReference;
 const pages = [];
 const errors = [];
+const bodyFontGroup = '"SF Pro Text", "Local Replacement Font 1", "PingFang UI SC", "Local Replacement Font 2", "PingFang SC"';
 const routes = new Map();
 const crossRoutes = new Map();
 const executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || chromium.executablePath();
@@ -192,13 +193,13 @@ test("正文名单原位替换，Song/SimHei 保留，未命中在最后追加�
   const page = await pageFor("body-names", '<style>#a{font-family:Arial,"HarmonyOS Sans SC",sans-serif}#b{font-family:SimSun,serif}#c{font-family:SimHei,sans-serif}#d{font-family:"Microsoft YaHei",Arial}#e{font-family:"HarmonyOS Sans",Arial}#f{font-family:"HarmonyOS_Sans",Arial}#g{font-family:"PingFang TC","PingFang HK","Microsoft JhengHei","Noto Sans TC","Source Han Sans TW",Arial}</style><p id=a>ABC“”</p><p id=b>中文 ABC</p><p id=c>ABC“”</p><p id=d>中文</p><p id=e>ABC“”</p><p id=f>ABC“”</p><p id=g>ABC“”</p>');
   await configured(page);
   const names = await page.evaluate(() => [...document.styleSheets].flatMap(x => [...x.cssRules]).filter(x => x.selectorText?.startsWith("#")).map(x => x.style.fontFamily));
-  assert.equal(names[0], '"Shared Punctuation Font", Arial, "SF Pro Text", "PingFang UI SC", "PingFang SC"');
+  assert.equal(names[0], '"Shared Punctuation Font", Arial, ' + bodyFontGroup);
   assert.equal(names[1], 'SimSun, serif');
-  assert.equal(names[2], '"Shared Punctuation Font", SimHei, "SF Pro Text", "PingFang UI SC", "PingFang SC"');
-  assert.equal(names[3], '"Shared Punctuation Font", "SF Pro Text", "PingFang UI SC", "PingFang SC", Arial');
-  assert.equal(names[4], '"Shared Punctuation Font", "HarmonyOS Sans", Arial, "SF Pro Text", "PingFang UI SC", "PingFang SC"');
-  assert.equal(names[5], '"Shared Punctuation Font", HarmonyOS_Sans, Arial, "SF Pro Text", "PingFang UI SC", "PingFang SC"');
-  assert.equal(names[6], '"PingFang TC", "PingFang HK", "Microsoft JhengHei", "Noto Sans TC", "Source Han Sans TW", Arial, "Shared Punctuation Font", "SF Pro Text", "PingFang UI SC", "PingFang SC"');
+  assert.equal(names[2], '"Shared Punctuation Font", SimHei, ' + bodyFontGroup);
+  assert.equal(names[3], '"Shared Punctuation Font", ' + bodyFontGroup + ', Arial');
+  assert.equal(names[4], '"Shared Punctuation Font", "HarmonyOS Sans", Arial, ' + bodyFontGroup);
+  assert.equal(names[5], '"Shared Punctuation Font", HarmonyOS_Sans, Arial, ' + bodyFontGroup);
+  assert.equal(names[6], '"PingFang TC", "PingFang HK", "Microsoft JhengHei", "Noto Sans TC", "Source Han Sans TW", Arial, "Shared Punctuation Font", ' + bodyFontGroup);
   await splitFonts(page, "#a", "Arial");
   assert.deepEqual(await fonts(page, "#d"), chineseReference);
   await page.locator("#d").evaluate(x => { x.textContent = "ABC中文"; });
@@ -209,8 +210,8 @@ test("常见 CSS 模板的简中字体栈原位替换，西文与通用字体保
   const page = await pageFor("template-stacks", '<style>#a{font-family:"Helvetica Neue",Helvetica,"PingFang SC","Hiragino Sans GB","Microsoft YaHei","微软雅黑",Arial,sans-serif}#b{font-family:"PingFang SC","Noto Sans CJK SC","Noto Sans SC","Source Han Sans SC","Microsoft YaHei UI","Microsoft YaHei","Hiragino Sans GB","WenQuanYi Micro Hei",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}</style><p id=a>ABC“”</p><p id=b>中文</p>');
   await configured(page);
   const names = await page.evaluate(() => [...document.styleSheets[0].cssRules].map(x => x.style.fontFamily));
-  assert.equal(names[0], '"Shared Punctuation Font", "Helvetica Neue", Helvetica, "SF Pro Text", "PingFang UI SC", "PingFang SC", Arial');
-  assert.equal(names[1], '"Shared Punctuation Font", "SF Pro Text", "PingFang UI SC", "PingFang SC", "Segoe UI"');
+  assert.equal(names[0], '"Shared Punctuation Font", "Helvetica Neue", Helvetica, ' + bodyFontGroup + ', Arial');
+  assert.equal(names[1], '"Shared Punctuation Font", ' + bodyFontGroup + ', "Segoe UI"');
   assert.deepEqual(await fonts(page, "#b"), chineseReference);
 });
 test("系统字体与 Apple 文本系列使用 SF Pro Text 和苹方 UI，变量切换保留宋体", async () => {
@@ -222,7 +223,7 @@ test("系统字体与 Apple 文本系列使用 SF Pro Text 和苹方 UI，变量
   const page = await pageFor("system-fonts", `<style>${css}:root{--body:SimSun}#v{font-family:var(--body),sans-serif}</style>${names.map((_, i) => `<p id=f${i}>ABC中文“”</p>`).join("")}<p id=v>中文“”</p>`);
   await configured(page);
   const declarations = await page.evaluate(() => [...document.styleSheets[0].cssRules].slice(0, 24).map(x => ({ family: x.style.fontFamily, size: x.style.fontSize })));
-  for (const declaration of declarations) assert.deepEqual(declaration, { family: '"Shared Punctuation Font", "SF Pro Text", "PingFang UI SC", "PingFang SC"', size: "28px" });
+  for (const declaration of declarations) assert.deepEqual(declaration, { family: '"Shared Punctuation Font", ' + bodyFontGroup, size: "28px" });
   assert.deepEqual(await fonts(page, "#f0"), [...westernReference, { family: "Courier New", glyphs: 2 }, ...chineseReference].sort((a, b) => a.family.localeCompare(b.family)));
   const variableFamily = () => page.locator("#v").evaluate(x => getComputedStyle(x).fontFamily);
   await page.waitForFunction(() => !getComputedStyle(document.getElementById("v")).fontFamily.includes("PingFang UI SC"));
@@ -276,12 +277,12 @@ test("宋体、楷体及仿宋跳过追加，CSSOM 与多层字体变量切换�
   assert.equal(names["#b"], 'KaiTi, serif');
   assert.match(names["#v"], /^var\(--spf-head-/);
   assert.match(names["#loop"], /^var\(--spf-head-/);
-  assert.equal(names["#mixed"], '"Shared Punctuation Font", Arial, "SF Pro Text", "PingFang UI SC", "PingFang SC", SimSun');
+  assert.equal(names["#mixed"], '"Shared Punctuation Font", Arial, ' + bodyFontGroup + ', SimSun');
   assert.equal(await page.locator("#inline").evaluate(x => x.style.fontFamily), 'FangSong, serif');
   assert.equal(await page.locator("#inline").evaluate(x => x.style.getPropertyPriority("font-family")), "important");
   assert.deepEqual(await fonts(page, "#a"), [{ family: "Courier New", glyphs: 2 }, { family: "SimSun", glyphs: 2 }]);
   await page.evaluate(() => document.getElementById("inline").style.setProperty("font-family", "Arial, sans-serif", "important"));
-  assert.equal(await page.locator("#inline").evaluate(x => x.style.fontFamily), '"Shared Punctuation Font", Arial, "SF Pro Text", "PingFang UI SC", "PingFang SC"');
+  assert.equal(await page.locator("#inline").evaluate(x => x.style.fontFamily), '"Shared Punctuation Font", Arial, ' + bodyFontGroup);
   await page.evaluate(() => document.getElementById("inline").style.setProperty("font-family", "KaiTi, serif", "important"));
   assert.equal(await page.locator("#inline").evaluate(x => x.style.fontFamily), 'KaiTi, serif');
   for (const [font, appended] of [["Arial", true], ["KaiTi", false], ['"Microsoft YaHei"', true], ["SimSun", false]]) {
@@ -300,7 +301,7 @@ test("仅开启中文正文功能时，变量追加与撤回可反复切换", as
       await page.evaluate(value => document.documentElement.style.setProperty("--body", value), font);
       await page.waitForFunction(expected => getComputedStyle(document.getElementById("t")).fontFamily.includes("PingFang UI SC") === expected, appended);
     }
-    assert.equal(await page.evaluate(() => [...document.fonts].length), 0);
+    assert.deepEqual(await page.evaluate(() => [...document.fonts].map(face => SPF.familyName(face.family))), ["local replacement font 1", "local replacement font 2"]);
   } finally { await worker.evaluate(settings => chrome.storage.local.set({ settings }), saved); }
 });
 test("中文与转义字体变量的多层依赖更新，布局变量保持原值，关闭后还原", async () => {
@@ -398,9 +399,9 @@ test("仅启用宋体和楷体时，变量、嵌套回退与开关更新保留�
     const page = await pageFor("song-kai", '<style>:root{--song:SimSun;--kai:KaiTi;--chain:var(--song)}#song{font-family:Arial,var(--chain),serif!important}#kai{font-family:var(--kai),serif}#fallback{font-family:var(--missing,var(--next,SimSun)),serif}#fang{font-family:FangSong,serif}</style><p id=song>中文</p><p id=kai>中文</p><p id=fallback>中文</p><p id=fang>中文</p>');
     await page.waitForFunction(() => document.styleSheets[0].cssRules[0].style.getPropertyValue("--song").includes("Times New Roman"));
     const rules = () => page.evaluate(() => [...document.styleSheets[0].cssRules].map(rule => rule.style.cssText));
-    assert.equal(await page.evaluate(() => document.styleSheets[0].cssRules[0].style.getPropertyValue("--song")), '"Times New Roman", "SimSun"');
-    assert.equal(await page.evaluate(() => document.styleSheets[0].cssRules[0].style.getPropertyValue("--kai")), '"Courier New", "KaiTi"');
-    assert.ok((await rules())[3].includes('var(--missing,var(--next,"Times New Roman", "SimSun"))'));
+    assert.equal(await page.evaluate(() => document.styleSheets[0].cssRules[0].style.getPropertyValue("--song")), '"Times New Roman", "Local Replacement Font 1", "SimSun", "Local Replacement Font 2"');
+    assert.equal(await page.evaluate(() => document.styleSheets[0].cssRules[0].style.getPropertyValue("--kai")), '"Courier New", "Local Replacement Font 3", "KaiTi", "Local Replacement Font 4"');
+    assert.ok((await rules())[3].includes('var(--missing,var(--next,"Times New Roman", "Local Replacement Font 1", "SimSun", "Local Replacement Font 2"))'));
     assert.equal(await page.locator("#fang").evaluate(node => getComputedStyle(node).fontFamily), 'FangSong, serif');
     await worker.evaluate(async () => { const { settings } = await chrome.storage.local.get("settings"); await chrome.storage.local.set({ settings: { ...settings, replaceKai: false } }); });
     await page.waitForFunction(() => document.styleSheets[0].cssRules[0].style.getPropertyValue("--kai") === "KaiTi");
@@ -447,7 +448,7 @@ test("真实设置页提示方正新书宋的完整名称，并用所填字体�
     await page.locator("#song-font").fill("方正新书宋_GBK");
     await page.waitForFunction(() => document.getElementById("song-font-status").textContent === "已找到本机字体。");
     assert.equal(await page.locator("#song-font-status").evaluate(node => node.classList.contains("error")), false);
-    assert.deepEqual(await page.locator(".preview-serif").evaluate(node => SPF.familyList(getComputedStyle(node).fontFamily).map(SPF.familyName)), ["times new roman", "方正新书宋_gbk", "serif"]);
+    assert.deepEqual(await page.locator(".preview-serif").evaluate(node => SPF.familyList(getComputedStyle(node).fontFamily).map(SPF.familyName)), ["times new roman", "方正新书宋_gbk", "local replacement font 1", "serif"]);
     await page.locator(".preview-serif").screenshot();
     assert.ok((await fonts(page, ".preview-serif")).some(font => font.family === "FZNewShuSong-Z10" && font.glyphs > 0));
   } finally { await page.close(); }

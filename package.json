@@ -2,10 +2,10 @@
   "name": "chinese-western-font-replacer",
   "private": true,
   "license": "GPL-3.0-or-later",
-  "version": "1.5.3",
+  "version": "1.6.0",
   "scripts": {
     "pretest": "node scripts/build-runtime.cjs",
-    "test": "node --test tests/shared.test.cjs tests/bridge.test.cjs tests/background-encoding.test.cjs tests/cssom-conversion.test.cjs tests/options-race.test.cjs tests/lifecycle.test.cjs tests/browser.test.cjs",
+    "test": "node --test tests/shared.test.cjs tests/font-names.test.cjs tests/font-mappings.test.cjs tests/bridge.test.cjs tests/background-encoding.test.cjs tests/cssom-conversion.test.cjs tests/options-race.test.cjs tests/lifecycle.test.cjs tests/browser.test.cjs",
     "test:package": "node --test tests/package.test.cjs",
     "pretest:package": "npm run build",
     "build": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./build-release.ps1"
