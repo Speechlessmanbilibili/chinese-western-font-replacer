@@ -31,8 +31,9 @@
 
 1. 在系统中安装准备使用的字体。
 2. 从 [最新 Release](https://github.com/Speechlessmanbilibili/chinese-western-font-replacer/releases/latest) 下载 `chinese-western-font-replacer-v<VERSION>.zip`。
-3. 打开 `edge://extensions/` 或 `chrome://extensions/`，开启开发者模式，将 ZIP 拖入扩展管理页。
-4. 点击扩展图标进入设置，填写本机字体名称，按需要启用各项功能，查看试样后保存。
+3. 打开扩展管理页（Edge：`edge://extensions/`；Chrome：`chrome://extensions/`），开启 **开发者模式**。
+4. 将下载的 ZIP 拖入扩展管理页完成安装。
+5. 点击扩展图标进入设置，填写本机字体名称，按需要启用各项功能，查看试样后保存。
 
 扩展适用于 Chrome、Edge 等 Chromium 浏览器，通过本机字体绘制。同一扩展 ID 下更新时拖入新版 ZIP，覆盖原扩展并沿用设置。固定扩展 ID：`bgihfdaiapfhjcpkaajdcplkkhfhmodg`。
 
