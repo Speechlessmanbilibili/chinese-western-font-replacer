@@ -174,16 +174,19 @@ test("站点关闭中文替换时同步停用宋体与楷体，独立标点字�
 
 test("serif 原位组合保留前置字体和显式字体名称，嵌套回退及重复处理保持一致", () => {
   const settings = { replaceSerif: true, serifChinese: "Missing Chinese, SimSun", serifWestern: "Missing Western, Times New Roman" };
-  const group = '"Mixed Serif Chinese", "Mixed Serif Chinese 2", "Mixed Serif Western", "Mixed Serif Western 2", serif';
+  const western = '"Missing Western", "Mixed Serif Western", "Times New Roman", "Mixed Serif Western 2"';
+  const group = '"Mixed Serif Punctuation", "Mixed Serif Punctuation 2", ' + western + ', "Missing Chinese", "Mixed Serif Chinese", "SimSun", "Mixed Serif Chinese 2", serif';
   assert.equal(S.normalize({}).replaceSerif, false);
-  assert.equal(S.normalize({}).serifShared, "chinese");
+  assert.equal(S.normalize({}).serifShared, "western");
+  assert.equal(S.normalize({ serifShared: "chinese" }).serifShared, "chinese");
   assert.equal(S.prepend("Arial, serif", settings), S.prefix + "Arial," + group);
   assert.equal(S.prepend("serif", settings), group);
   assert.equal(S.prepend("SimSun", settings), group.replace(/serif$/, "SimSun"));
   assert.equal(S.prepend('"宋体"', settings), group.replace(/serif$/, '"宋体"'));
   for (const value of ['"Times New Roman"', 'Times New Roman', '"TIMES NEW ROMAN"', String.raw`"Times New \52 oman"`]) {
     assert.equal(S.hasSerif(value), true, value);
-    assert.equal(S.prepend(value, settings), group.replace(/serif$/, value), value);
+    assert.equal(S.prepend(value, settings), western + ", " + value, value);
+    assert.equal(S.prepend(value, { ...settings, serifShared: "chinese" }), '"Mixed Serif Punctuation", "Mixed Serif Punctuation 2", ' + western + ", " + value, value);
   }
   assert.equal(S.normalize({ replaceSong: true, replaceSerif: true }).replaceSong, false);
   assert.equal(S.prepend(S.prepend("Arial, serif", settings), settings), S.prefix + "Arial," + group);
@@ -218,19 +221,27 @@ test("标点按原字体名称标签筛选，变量名称与替换后的字体�
   assert.ok(!S.prepend('"Times New Roman", sans-serif', { ...options, replaceSerif: true }).includes('Shared Punctuation Font'));
 });
 
-test("serif 中西文范围不重叠，汉字扩展、全角标点、西文与共用字符正确分配", () => {
+test("衬线字体保留完整范围，中文同码标点独立提取", () => {
   const intervals = text => text.split(",").map(item => item.slice(2).split("-").map(x => parseInt(x, 16))).map(([start, end]) => [start, end ?? start]);
   const contains = (ranges, char) => ranges.some(([start, end]) => char.codePointAt(0) >= start && char.codePointAt(0) <= end);
-  for (const side of ["chinese", "western"]) {
-    const ranges = S.serifRanges(side), cn = intervals(ranges.chinese), west = intervals(ranges.western);
-    for (const [start, end] of cn) assert.ok(!west.some(([otherStart, otherEnd]) => start <= otherEnd && end >= otherStart));
-    for (const char of "中文。，㐀𠀀𱍐") { assert.ok(contains(cn, char), char); assert.ok(!contains(west, char), char); }
-    for (const char of "ABC2026éΩЖ") { assert.ok(contains(west, char), char); assert.ok(!contains(cn, char), char); }
-    for (const char of "“”…—·※§†©±") assert.equal(contains(cn, char), side === "chinese", char);
-    for (const [start, end] of [...cn, ...west]) assert.ok(end < 0xD800 || start > 0xDFFF);
-  }
+  const punctuation = intervals(S.SERIF_SHARED_RANGE);
+  for (const char of "“”…—·※§†©±") assert.ok(contains(punctuation, char), char);
+  for (const char of "中文。，㐀𠀀𱍐ABC2026éΩЖ") assert.ok(!contains(punctuation, char), char);
   const faces = S.serifFaces({ replaceSerif: true, serifChinese: "PingFang UI SC, SimSun", serifWestern: "Arial" });
-  assert.deepEqual([...faces].map(x => [x.side, x.weight]), [["chinese", "100 900"], ["chinese", "normal"], ["western", "normal"]]);
+  assert.deepEqual([...faces].filter(x => !x.family.includes("Punctuation")).map(x => [x.side, x.weight, x.range]), [["chinese", "100 900", "U+0-10FFFF"], ["chinese", "normal", "U+0-10FFFF"], ["western", "normal", "U+0-10FFFF"]]);
+  assert.ok(faces.filter(x => x.family.includes("Punctuation")).every(x => x.range === S.SERIF_SHARED_RANGE));
+});
+
+test("TNR 与宋体共存时保留原顺序，serif 变量后备补齐中西文字体", () => {
+  const settings = { replaceSerif: true, serifChinese: "Chinese Custom", serifWestern: "Western Custom", groups: [], cjkMode: "off" };
+  const names = value => [...S.familyList(S.prepend(value, settings))].map(S.familyName);
+  const western = ["western custom", "mixed serif western"];
+  const chinese = ["chinese custom", "mixed serif chinese"];
+  assert.deepEqual(names('"Times New Roman", SimSun'), [...western, "times new roman", "mixed serif punctuation", ...chinese, "simsun"]);
+  assert.deepEqual(names('SimSun, "Times New Roman"'), ["mixed serif punctuation", ...western, ...chinese, "simsun", "times new roman"]);
+  for (const value of ['"Times New Roman", SimSun', 'SimSun, "Times New Roman"']) assert.equal(S.prepend(S.prepend(value, settings), settings), S.prepend(value, settings));
+  const fallback = S.prepend("var(--font, var(--backup, serif))", settings);
+  assert.ok(fallback.includes('var(--backup,"Mixed Serif Punctuation", "Western Custom", "Mixed Serif Western", "Chinese Custom", "Mixed Serif Chinese", serif)'));
 });
 
 test("字重映射默认留空，同一家族按大小写无关名称组合且只前置一次", () => {
@@ -250,9 +261,10 @@ test("字重映射默认留空，同一家族按大小写无关名称组合且�
   assert.equal(S.prepend("Arial, sans-serif", settings), '"Shared Punctuation Font", "Shared Punctuation Font 2", Arial, sans-serif');
   const serif = S.serifFaces({ ...settings, replaceSerif: true, serifChinese: "READING", serifWestern: "Arial" });
   assert.deepEqual([...serif].map(face => [face.family, face.weight]), [
-    ["Mixed Serif Chinese", "100 399"], ["Mixed Serif Chinese", "400 900"], ["Mixed Serif Western", "normal"]
+    ["Mixed Serif Chinese", "100 399"], ["Mixed Serif Chinese", "400 900"], ["Mixed Serif Western", "normal"],
+    ["Mixed Serif Punctuation", "100 399"], ["Mixed Serif Punctuation", "400 900"]
   ]);
-  assert.equal(serif[0].range, S.serifRanges().chinese);
+  assert.equal(serif[0].range, "U+0-10FFFF");
 });
 
 test("正文映射和精确字面使用本机引用，普通家族保留原生粗细选择与后备", () => {

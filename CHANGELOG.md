@@ -2,6 +2,12 @@
 
 根据 Git 提交、版本标签及 GitHub Release 记录整理。版本标题链接到对应 Release，日期采用首次发布时的北京时间；同版本安装包的后续更新另行标注日期。
 
+## [v1.7.0](https://github.com/Speechlessmanbilibili/chinese-western-font-replacer/releases/tag/v1.7.0)（2026-11-20）
+
+- 衬线组合分别替换 `Times New Roman` 和 `宋体`/`SimSun`：前者使用西文字体，后者自动加入中文同码标点、西文字体与中文字体。
+- 通用 `serif` 及字体变量的 `serif` 后备使用完整组合；`Times New Roman` 与宋体共存时保留原列表顺序和前置字体优先级。
+- 中西文字体使用完整字形范围与原生字重选择；新增默认关闭的 `Times New Roman` 中文同码标点提取选项，保留已保存的共用字符设置。
+
 ## [v1.6.0](https://github.com/Speechlessmanbilibili/chinese-western-font-replacer/releases/tag/v1.6.0)（2026-10-31）
 
 - 新增手动字重映射，将多个本机字面按单个字重或区间组合为自定义家族，覆盖各字体替换板块。

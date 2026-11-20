@@ -45,7 +45,7 @@
       replaceSong: $("replace-song").checked, songFont: $("song-font").value,
       replaceKai: $("replace-kai").checked, kaiFont: $("kai-font").value,
       replaceSerif: $("replace-serif").checked, serifChinese: $("serif-chinese").value, serifWestern: $("serif-western").value,
-      serifShared: document.querySelector('input[name="serif-shared"]:checked').value,
+      serifShared: $("serif-shared").checked ? "chinese" : "western",
       siteRules: [...$("rules").children].map(x => ({ domain: x.querySelector(".domain").value, action: x.querySelector("[data-action]:checked").value, font: x.querySelector(".site-font").value, cjkMode: x.querySelector("[data-cjk]:checked").value }))
     });
   }
@@ -62,7 +62,7 @@
     $("cjk-western-font").disabled = settings.cjkMode === "off";
     $("song-font").disabled = !settings.replaceSong;
     $("kai-font").disabled = !settings.replaceKai;
-    for (const input of [$("serif-chinese"), $("serif-western"), ...document.querySelectorAll('input[name="serif-shared"]')]) input.disabled = !settings.replaceSerif;
+    for (const input of [$("serif-chinese"), $("serif-western"), $("serif-shared")]) input.disabled = !settings.replaceSerif;
     $("font-status").textContent = range ? "" : "未选择标点字符。";
     $("font-status").classList.remove("error");
     for (const id of ["cjk-font-status", "cjk-western-font-status", "song-font-status", "kai-font-status", "serif-chinese-status", "serif-western-status"]) { $(id).textContent = ""; $(id).classList.remove("error"); }
@@ -232,7 +232,7 @@
     $("replace-song").checked = value.replaceSong; $("song-font").value = value.songFont;
     $("replace-kai").checked = value.replaceKai; $("kai-font").value = value.kaiFont;
     $("replace-serif").checked = value.replaceSerif; $("serif-chinese").value = value.serifChinese; $("serif-western").value = value.serifWestern;
-    document.querySelector(`input[name="serif-shared"][value="${value.serifShared}"]`).checked = true;
+    $("serif-shared").checked = value.serifShared === "chinese";
     for (const input of document.querySelectorAll("[data-group]")) input.checked = value.groups.includes(input.value);
     const rules = [...$("rules").children].map(x => ({ domain: x.querySelector(".domain").value, action: x.querySelector("[data-action]:checked").value, font: x.querySelector(".site-font").value, cjkMode: x.querySelector("[data-cjk]:checked").value }));
     if (JSON.stringify(rules) !== JSON.stringify(value.siteRules)) { $("rules").replaceChildren(); for (const rule of value.siteRules) addRule(rule); }

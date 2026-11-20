@@ -226,13 +226,14 @@ test("serif 字体板块、共用字符选项、预览、保存及关闭校验�
     assert.equal(await page.title(), "中西文字体替换");
     assert.equal(await page.locator("#replace-serif").isChecked(), false);
     assert.equal(await page.locator("#serif-chinese").isDisabled(), true);
+    assert.equal(await page.locator("#serif-shared").isChecked(), false);
     await page.locator("#replace-serif").check();
     await page.locator("#serif-chinese").fill("Missing Font, SimSun");
     await page.locator("#serif-western").fill("Missing Font，Courier New");
-    await page.locator('input[name="serif-shared"][value="western"]').check();
+    await page.locator("#serif-shared").check();
     await page.waitForFunction(() => ["serif-chinese-status", "serif-western-status"].every(id => document.getElementById(id).textContent === "已找到本机字体。"));
     const family = await page.locator(".preview-generic-serif").evaluate(node => node.style.fontFamily);
-    assert.ok(family.startsWith('"Mixed Serif Chinese"'));
+    assert.ok(family.startsWith('"Mixed Serif Punctuation"'));
     assert.ok(!family.includes("Shared Punctuation Font"));
     await page.getByRole("button", { name: "查看原字形" }).click();
     assert.equal(await page.locator(".preview-generic-serif").evaluate(node => node.style.fontFamily), "serif");
@@ -240,7 +241,7 @@ test("serif 字体板块、共用字符选项、预览、保存及关闭校验�
     await page.getByRole("button", { name: "保存设置" }).click();
     await page.waitForFunction(() => saves.length === 1);
     const value = await page.evaluate(() => saves[0].value.settings);
-    assert.equal(value.replaceSerif, true); assert.equal(value.serifShared, "western");
+    assert.equal(value.replaceSerif, true); assert.equal(value.serifShared, "chinese");
     assert.equal(value.serifChinese, "Missing Font, SimSun"); assert.equal(value.serifWestern, "Missing Font，Courier New");
     await page.evaluate(() => saves[0].resolve());
     await page.locator("#serif-western").fill(",，");
