@@ -185,7 +185,7 @@ PingFang UI SC, PingFang SC
 
 ## 开发与构建
 
-签名私钥的加密备份集中保存在独立私有仓库 [`font-extension-signing-keys`](https://github.com/Speechlessmanbilibili/font-extension-signing-keys)。本地密钥仓库与三个扩展项目同级；本项目仅保存公钥，解密口令由维护者另行保管。
+签名私钥的加密备份集中保存在独立私有仓库 [`font-extension-signing-keys`](https://github.com/Speechlessmanbilibili/font-extension-signing-keys)，解密口令保存在 1Password。本地密钥仓库与三个扩展项目同级，本项目仅保存公钥。
 
 常规测试使用独立测试浏览器；只生成主世界入口，发布包检查通过 `npm run test:package` 单独运行。测试环境使用 Node.js 24.17 或更新版本。
 
